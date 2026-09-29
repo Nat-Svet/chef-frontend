@@ -1,0 +1,281 @@
+import { WEEK_DAYS, type WeekDay } from '@/constants/catalog';
+import type { TimewebMenu } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
+import type { MealType, Recipe, RecipeIngredient, StoreProduct } from '@/lib/types';
+
+export type MealIngredient = {
+  name: string;
+  grams: number;
+};
+
+export type Meal = {
+  id: number;
+  mealType: MealType;
+  title: string;
+  cookingTime: number;
+  kcal: number;
+  protein: number;
+  fat: number;
+  carb: number;
+  tags: string[];
+  equipment: string;
+  emoji: string;
+  ingredients: MealIngredient[];
+  steps: string[];
+};
+
+export type GeneratedMenu = {
+  userId: string;
+  isFallback: boolean;
+  store: string;
+  totalCost: number;
+  nutrition: { kcal: number; protein: number; fat: number; carb: number } | null;
+  zeroWasteNotes: string;
+  days: { day: WeekDay; breakfastId: number; lunchId: number; dinnerId: number }[];
+  recipes: Record<number, Meal>;
+  shoppingItems: ShoppingItem[];
+};
+
+export type ShoppingCategory = 'Овощи и фрукты' | 'Мясо и птица' | 'Молочные продукты' | 'Бакалея';
+
+export type ShoppingItem = {
+  name: string;
+  grams: number;
+  category: ShoppingCategory;
+  price: number;
+};
+
+const MEAL_EMOJI: Record<MealType, string> = {
+  завтрак: '🥣',
+  обед: '🍗',
+  ужин: '🍲',
+};
+
+const EQUIPMENT_TAGS = ['Плита', 'Духовка', 'Мультиварка'];
+
+const CATEGORY_ORDER: ShoppingCategory[] = [
+  'Овощи и фрукты',
+  'Мясо и птица',
+  'Молочные продукты',
+  'Бакалея',
+];
+
+const CATEGORY_EMOJI: Record<ShoppingCategory, string> = {
+  'Овощи и фрукты': '🥦',
+  'Мясо и птица': '🍗',
+  'Молочные продукты': '🥛',
+  Бакалея: '🫙',
+};
+
+const INGREDIENT_CATEGORY: Record<string, ShoppingCategory> = {
+  'Смесь ягод': 'Овощи и фрукты',
+  Брокколи: 'Овощи и фрукты',
+  'Болгарский перец': 'Овощи и фрукты',
+  Кабачок: 'Овощи и фрукты',
+  Помидоры: 'Овощи и фрукты',
+  Морковь: 'Овощи и фрукты',
+  'Репчатый лук': 'Овощи и фрукты',
+  'Куриное филе': 'Мясо и птица',
+  'Йогурт натуральный': 'Молочные продукты',
+  'Молоко 2,5%': 'Молочные продукты',
+  'Овсяные хлопья': 'Бакалея',
+  Киноа: 'Бакалея',
+  Мёд: 'Бакалея',
+  'Оливковое масло': 'Бакалея',
+  'Соль и специи': 'Бакалея',
+  'Нут варёный': 'Бакалея',
+};
+
+export function formatGrams(gramsPerPortion: number, portions: number) {
+  const value = gramsPerPortion * portions;
+  if (value < 10) {
+    return `${value.toFixed(1).replace('.', ',')} г`;
+  }
+  return `${Math.round(value)} г`;
+}
+
+export function groupShoppingList(items: ShoppingItem[]) {
+  return CATEGORY_ORDER.map((category) => ({
+    category,
+    emoji: CATEGORY_EMOJI[category],
+    items: items.filter((item) => item.category === category),
+  })).filter((group) => group.items.length > 0);
+}
+
+export function mealsForDay(menu: GeneratedMenu, day: WeekDay): Meal[] {
+  const row = menu.days.find((item) => item.day === day) ?? menu.days[0];
+  if (!row) return [];
+
+  return [
+    { id: row.breakfastId, type: 'завтрак' as const },
+    { id: row.lunchId, type: 'обед' as const },
+    { id: row.dinnerId, type: 'ужин' as const },
+  ]
+    .map(({ id, type }) => {
+      const meal = menu.recipes[id];
+      return meal ? { ...meal, mealType: meal.mealType || type } : null;
+    })
+    .filter((item): item is Meal => item !== null);
+}
+
+export async function hydrateGeneratedMenu(
+  userId: string,
+  raw: TimewebMenu,
+  isFallback: boolean,
+): Promise<GeneratedMenu> {
+  const days = WEEK_DAYS.map((day, index) => {
+    const row = raw.days.find((item) => item.day === day) ?? raw.days[index];
+    return {
+      day,
+      breakfastId: Number(row?.breakfastId),
+      lunchId: Number(row?.lunchId),
+      dinnerId: Number(row?.dinnerId),
+    };
+  });
+
+  const recipeIds = [
+    ...new Set(days.flatMap((item) => [item.breakfastId, item.lunchId, item.dinnerId])),
+  ].filter((id) => Number.isFinite(id));
+
+  const [recipesResult, ingredientsResult, productsResult] = await Promise.all([
+    supabase.from('recipes').select('*').in('id', recipeIds),
+    supabase.from('recipe_ingredients').select('*').in('recipe_id', recipeIds),
+    supabase.from('store_products').select('*'),
+  ]);
+
+  if (recipesResult.error) throw recipesResult.error;
+  if (ingredientsResult.error) throw ingredientsResult.error;
+  if (productsResult.error) throw productsResult.error;
+
+  const recipes: Record<number, Meal> = {};
+  for (const recipe of (recipesResult.data ?? []) as Recipe[]) {
+    const ingredients = ((ingredientsResult.data ?? []) as RecipeIngredient[]).filter(
+      (item) => item.recipe_id === recipe.id,
+    );
+    recipes[recipe.id] = toMeal(recipe, ingredients);
+  }
+
+  const menu: GeneratedMenu = {
+    userId,
+    isFallback,
+    store: raw.store,
+    totalCost: Number(raw.totalCost) || 0,
+    nutrition: raw.nutrition,
+    zeroWasteNotes: raw.zeroWasteNotes || '',
+    days,
+    recipes,
+    shoppingItems: [],
+  };
+
+  menu.shoppingItems = buildShoppingItems(menu, (productsResult.data ?? []) as StoreProduct[]);
+  return menu;
+}
+
+function toMeal(recipe: Recipe, ingredients: RecipeIngredient[]): Meal {
+  const mealType = (recipe.meal_type ?? 'обед') as MealType;
+  const equipment = recipe.tags.find((tag) => EQUIPMENT_TAGS.includes(tag)) ?? 'Плита';
+
+  return {
+    id: recipe.id,
+    mealType,
+    title: recipe.title,
+    cookingTime: recipe.cooking_time ?? 0,
+    kcal: Math.round(sum(ingredients.map((item) => item.kcal))),
+    protein: Math.round(sum(ingredients.map((item) => item.protein))),
+    fat: Math.round(sum(ingredients.map((item) => item.fat))),
+    carb: Math.round(sum(ingredients.map((item) => item.carb))),
+    tags: recipe.tags,
+    equipment,
+    emoji: MEAL_EMOJI[mealType],
+    ingredients: ingredients.map((item) => ({
+      name: item.name,
+      grams: item.amount_grams ?? 0,
+    })),
+    steps: parseSteps(recipe.instructions),
+  };
+}
+
+function parseSteps(instructions: string | null) {
+  if (!instructions) return [];
+  return instructions
+    .split(/\n+/)
+    .map((line) => line.replace(/^\d+[.)]\s*/, '').trim())
+    .filter(Boolean);
+}
+
+function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): ShoppingItem[] {
+  const counts = new Map<number, number>();
+  for (const day of menu.days) {
+    for (const id of [day.breakfastId, day.lunchId, day.dinnerId]) {
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+
+  const gramsByName = new Map<string, number>();
+  for (const [recipeId, times] of counts) {
+    const meal = menu.recipes[recipeId];
+    if (!meal) continue;
+    for (const ingredient of meal.ingredients) {
+      gramsByName.set(ingredient.name, (gramsByName.get(ingredient.name) ?? 0) + ingredient.grams * times);
+    }
+  }
+
+  const storeProducts = products.filter(
+    (item) => item.store_name === menu.store && item.in_stock !== false,
+  );
+
+  const raw = [...gramsByName.entries()].map(([name, grams]) => {
+    const product = matchProduct(name, storeProducts);
+    const packGrams = product?.pack_weight_grams && product.pack_weight_grams > 0 ? product.pack_weight_grams : grams;
+    const packs = product ? Math.max(1, Math.ceil(grams / packGrams)) : 1;
+    const rawPrice = product ? packs * Number(product.price) : Math.max(1, Math.round(grams * 0.15));
+
+    return {
+      name,
+      grams,
+      category: INGREDIENT_CATEGORY[name] ?? guessCategory(name),
+      rawPrice,
+    };
+  });
+
+  const rawTotal = raw.reduce((sum, item) => sum + item.rawPrice, 0) || 1;
+  const target = menu.totalCost > 0 ? Math.round(menu.totalCost) : Math.round(rawTotal);
+  const items = raw
+    .map((item) => ({
+      name: item.name,
+      grams: item.grams,
+      category: item.category,
+      price: Math.max(1, Math.round((item.rawPrice / rawTotal) * target)),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+
+  const drift = target - items.reduce((sum, item) => sum + item.price, 0);
+  if (items.length && drift !== 0) {
+    items[items.length - 1].price = Math.max(1, items[items.length - 1].price + drift);
+  }
+
+  return items;
+}
+
+function matchProduct(name: string, products: StoreProduct[]) {
+  const needle = name.toLowerCase();
+  return (
+    products.find((item) => item.search_term.toLowerCase() === needle) ??
+    products.find(
+      (item) =>
+        needle.includes(item.search_term.toLowerCase()) || item.search_term.toLowerCase().includes(needle),
+    )
+  );
+}
+
+function guessCategory(name: string): ShoppingCategory {
+  const lower = name.toLowerCase();
+  if (/(филе|курин|мясо|фарш)/.test(lower)) return 'Мясо и птица';
+  if (/(молоко|йогурт|сыр|творог)/.test(lower)) return 'Молочные продукты';
+  if (/(ягод|овощ|перец|кабач|томат|морков|лук|брокколи)/.test(lower)) return 'Овощи и фрукты';
+  return 'Бакалея';
+}
+
+function sum(values: Array<number | null | undefined>) {
+  return values.reduce<number>((total, value) => total + (Number(value) || 0), 0);
+}
