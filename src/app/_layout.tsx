@@ -3,26 +3,31 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
+import { AppErrorBoundary } from '@/components/error-boundary';
 import { PhoneShell } from '@/components/phone-shell';
 import '@/constants/theme';
 import { MenuProvider } from '@/hooks/use-menu';
 import { PreferencesProvider, usePreferences } from '@/hooks/use-preferences';
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {
+  /* сплэш уже скрыт системой — не критично */
+});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <PreferencesProvider>
-        <MenuProvider>
-          <PhoneShell>
-            <AppStack />
-          </PhoneShell>
-        </MenuProvider>
-      </PreferencesProvider>
-    </ThemeProvider>
+    <AppErrorBoundary>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <PreferencesProvider>
+          <MenuProvider>
+            <PhoneShell>
+              <AppStack />
+            </PhoneShell>
+          </MenuProvider>
+        </PreferencesProvider>
+      </ThemeProvider>
+    </AppErrorBoundary>
   );
 }
 
