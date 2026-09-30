@@ -8,9 +8,11 @@
     "scheme": "chefvkarmane",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.natSvet.chefInPocket",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.natSvet.chefInPocket",
       "adaptiveIcon": {
         "backgroundColor": "#FBF7F0",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
