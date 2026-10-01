@@ -17,7 +17,7 @@ import { mealsForDay } from '@/lib/menu';
 export default function MenuScreen() {
   const theme = useTheme();
   const { preferences } = usePreferences();
-  const { ready, menu, generating, error, generateMenu } = useMenu();
+  const { ready, menu, generating, error, generateMenu, regenerateMeal, regeneratingSlot } = useMenu();
   const [day, setDay] = useState<WeekDay>('Пн');
   const autoStarted = useRef(false);
 
@@ -86,19 +86,12 @@ export default function MenuScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <ThemedText type="smallBold" themeColor="textSecondary">
-            ГАСТРО-КОНСТРУКТОР
-          </ThemedText>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/onboarding')}>
-            <ThemedText type="smallBold" style={{ color: theme.primary }}>
-              Изменить опрос
-            </ThemedText>
-          </Pressable>
-        </View>
+        <ThemedText type="smallBold" themeColor="textSecondary">
+          ГАСТРО-КОНСТРУКТОР
+        </ThemedText>
         <ThemedText type="heading">Шеф в Кармане</ThemedText>
         <ThemedText themeColor="textSecondary">
-          Рацион на неделю собрали ИИ-агенты. Магазин: {menu.store}.
+          Рацион на неделю собрали ИИ-агенты. {menu.stores.length > 1 ? 'Магазины' : 'Магазин'}: {menu.stores.join(' + ')}.
         </ThemedText>
       </View>
 
@@ -112,6 +105,26 @@ export default function MenuScreen() {
           </ThemedText>
         </ThemedView>
       ) : null}
+
+      {menu.scarcityNotice ? (
+        <ThemedView type="primarySoft" style={styles.fallbackBanner}>
+          <ThemedText type="small" style={{ color: theme.primary }}>
+            {menu.scarcityNotice}
+          </ThemedText>
+        </ThemedView>
+      ) : null}
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push('/onboarding')}
+        style={[styles.settingsButton, { backgroundColor: theme.primarySoft }]}>
+        <ThemedText type="smallBold" style={{ color: theme.primary }}>
+          ✨ Изменить рацион и бюджет
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          Кошелёк, диета или доступная техника изменились? Перенастройте всё за минуту.
+        </ThemedText>
+      </Pressable>
 
       <ThemedView type="backgroundElement" style={styles.budgetCard}>
         <View style={styles.budgetRow}>
@@ -154,11 +167,18 @@ export default function MenuScreen() {
 
       <ThemedText type="smallBold">Рацион · {day}</ThemedText>
 
-      {meals.map((meal) => (
-        <Link key={`${day}-${meal.mealType}-${meal.id}`} href={`/recipe/${meal.id}`} asChild>
-          <MealCard meal={meal} />
-        </Link>
-      ))}
+      {meals.map((meal) => {
+        const slotKey = `${day}-${meal.mealType}`;
+        return (
+          <Link key={slotKey} href={`/recipe/${meal.id}`} asChild>
+            <MealCard
+              meal={meal}
+              regenerating={regeneratingSlot === slotKey}
+              onRegenerate={() => void regenerateMeal(day, meal.mealType)}
+            />
+          </Link>
+        );
+      })}
 
       <Pressable
         onPress={() => router.push('/shopping-list')}
@@ -181,15 +201,15 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.one,
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
   fallbackBanner: {
     borderRadius: Spacing.four,
     padding: Spacing.three,
     gap: Spacing.half,
+  },
+  settingsButton: {
+    borderRadius: Spacing.four,
+    padding: Spacing.three,
+    gap: 2,
   },
   budgetCard: {
     borderRadius: Spacing.four,

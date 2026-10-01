@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useMenu } from '@/hooks/use-menu';
 import { usePreferences } from '@/hooks/use-preferences';
-import { formatGrams } from '@/lib/menu';
+import { formatGrams, groupShoppingItemsByStore } from '@/lib/menu';
 import { useTheme } from '@/hooks/use-theme';
 import { getOwnedItems } from '@/lib/shopping-selection';
 
@@ -17,27 +17,34 @@ export default function CartScreen() {
   const { preferences } = usePreferences();
   const { menu } = useMenu();
   const [ready, setReady] = useState(false);
-  const [sandboxOpen, setSandboxOpen] = useState(false);
+  const [sandboxStore, setSandboxStore] = useState<string | null>(null);
   const pulse = useRef(new Animated.Value(0.7)).current;
-  const store = menu?.store ?? preferences.selectedStores[0] ?? 'Самокат';
+  const fallbackStore = menu?.store ?? preferences.selectedStores[0] ?? 'Самокат';
 
   const items = useMemo(() => {
     const owned = new Set(getOwnedItems());
     return (menu?.shoppingItems ?? []).filter((item) => !owned.has(item.name));
   }, [menu]);
 
+  const sections = useMemo(() => groupShoppingItemsByStore(items), [items]);
   const total = items.reduce((sum, item) => sum + item.price, 0);
+  const activeSection = sections.find((section) => section.store === sandboxStore) ?? null;
 
-  const orderPayload = useMemo(
-    () => ({
+  const orderPayload = useMemo(() => {
+    if (!activeSection) return null;
+    return {
       sandbox: true,
-      store,
-      itemsCount: items.length,
-      totalCost: total,
-      items: items.map((item) => ({ name: item.name, grams: item.grams, category: item.category, price: item.price })),
-    }),
-    [store, items, total],
-  );
+      store: activeSection.store,
+      itemsCount: activeSection.items.length,
+      totalCost: activeSection.total,
+      items: activeSection.items.map((item) => ({
+        name: item.name,
+        grams: item.grams,
+        category: item.category,
+        price: item.price,
+      })),
+    };
+  }, [activeSection]);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -79,7 +86,7 @@ export default function CartScreen() {
           <ThemedText style={styles.loaderEmoji}>🛒</ThemedText>
         </Animated.View>
         <ThemedText type="heading" style={styles.center}>
-          Собираем корзину для {store}...
+          Собираем корзину для {fallbackStore}...
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.center}>
           Подбираем SKU, фасуем остатки и готовим deep link в доставку.
@@ -99,99 +106,114 @@ export default function CartScreen() {
       <ThemedView type="accentSoft" style={styles.hero}>
         <ThemedText style={styles.loaderEmoji}>✨</ThemedText>
         <ThemedText type="heading" style={styles.center}>
-          Корзина для {store} готова
+          {sections.length > 1 ? 'Корзины готовы' : `Корзина для ${fallbackStore} готова`}
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.center}>
-          {items.length} позиций · {total.toLocaleString('ru-RU')} ₽ · можно отправлять по Deep Link
+          {items.length} позиций · {total.toLocaleString('ru-RU')} ₽
+          {sections.length > 1 ? ' · разделены по магазинам, где выгоднее' : ' · можно отправлять по Deep Link'}
         </ThemedText>
       </ThemedView>
 
-      <ThemedView type="backgroundElement" style={styles.listCard}>
-        {items.map((item, index) => (
-          <View
-            key={item.name}
-            style={[
-              styles.row,
-              index < items.length - 1 && {
-                borderBottomWidth: StyleSheet.hairlineWidth,
-                borderBottomColor: theme.backgroundSelected,
-              },
-            ]}>
-            <View style={styles.rowCopy}>
-              <ThemedText type="smallBold">{item.name}</ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {formatGrams(item.grams, 1)}
-              </ThemedText>
-            </View>
-            <ThemedText type="smallBold" style={{ color: theme.primary }}>
-              {item.price} ₽
+      {sections.map((section) => (
+        <View key={section.store} style={styles.storeBlock}>
+          <View style={styles.storeHeader}>
+            <ThemedText type="smallBold">🏪 {section.store}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {section.items.length} позиций · {section.total.toLocaleString('ru-RU')} ₽
             </ThemedText>
           </View>
-        ))}
-      </ThemedView>
 
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => setSandboxOpen(true)}
-        style={[styles.cta, { backgroundColor: theme.accent }]}>
-        <ThemedText type="smallBold" style={styles.ctaLabel}>
-          Открыть {store}
-        </ThemedText>
-      </Pressable>
+          <ThemedView type="backgroundElement" style={styles.listCard}>
+            {section.items.map((item, index) => (
+              <View
+                key={item.name}
+                style={[
+                  styles.row,
+                  index < section.items.length - 1 && {
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                    borderBottomColor: theme.backgroundSelected,
+                  },
+                ]}>
+                <View style={styles.rowCopy}>
+                  <ThemedText type="smallBold">{item.name}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {formatGrams(item.grams, 1)}
+                  </ThemedText>
+                </View>
+                <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                  {item.price} ₽
+                </ThemedText>
+              </View>
+            ))}
+          </ThemedView>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setSandboxStore(section.store)}
+            style={[styles.cta, { backgroundColor: theme.accent }]}>
+            <ThemedText type="smallBold" style={styles.ctaLabel}>
+              Открыть {section.store}
+            </ThemedText>
+          </Pressable>
+        </View>
+      ))}
+
       <ThemedText type="small" themeColor="textSecondary" style={styles.center}>
         Режим песочницы: реальный заказ пока не отправляется, ниже — техническая структура будущего запроса.
       </ThemedText>
 
-      <Modal visible={sandboxOpen} animationType="slide" transparent onRequestClose={() => setSandboxOpen(false)}>
+      <Modal visible={activeSection !== null} animationType="slide" transparent onRequestClose={() => setSandboxStore(null)}>
         <View style={styles.backdrop}>
           <ThemedView type="background" style={styles.sheet}>
             <View style={styles.sheetHeader}>
               <ThemedText type="heading">🧪 Песочница заказа</ThemedText>
-              <Pressable accessibilityRole="button" onPress={() => setSandboxOpen(false)}>
+              <Pressable accessibilityRole="button" onPress={() => setSandboxStore(null)}>
                 <ThemedText type="smallBold" style={{ color: theme.primary }}>
                   Закрыть
                 </ThemedText>
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.sheetContent}>
-              <ThemedView type="accentSoft" style={styles.summary}>
-                <ThemedText type="smallBold">Магазин: {store}</ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  {items.length} позиций · {total.toLocaleString('ru-RU')} ₽
-                </ThemedText>
-              </ThemedView>
+            {activeSection ? (
+              <ScrollView contentContainerStyle={styles.sheetContent}>
+                <ThemedView type="accentSoft" style={styles.summary}>
+                  <ThemedText type="smallBold">Магазин: {activeSection.store}</ThemedText>
+                  <ThemedText themeColor="textSecondary">
+                    {activeSection.items.length} позиций · {activeSection.total.toLocaleString('ru-RU')} ₽
+                  </ThemedText>
+                </ThemedView>
 
-              <ThemedText type="smallBold">Состав заказа</ThemedText>
-              <ThemedView type="backgroundElement" style={styles.listCard}>
-                {items.map((item, index) => (
-                  <View
-                    key={item.name}
-                    style={[
-                      styles.row,
-                      index < items.length - 1 && {
-                        borderBottomWidth: StyleSheet.hairlineWidth,
-                        borderBottomColor: theme.backgroundSelected,
-                      },
-                    ]}>
-                    <View style={styles.rowCopy}>
-                      <ThemedText type="smallBold">{item.name}</ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {formatGrams(item.grams, 1)}
+                <ThemedText type="smallBold">Состав заказа</ThemedText>
+                <ThemedView type="backgroundElement" style={styles.listCard}>
+                  {activeSection.items.map((item, index) => (
+                    <View
+                      key={item.name}
+                      style={[
+                        styles.row,
+                        index < activeSection.items.length - 1 && {
+                          borderBottomWidth: StyleSheet.hairlineWidth,
+                          borderBottomColor: theme.backgroundSelected,
+                        },
+                      ]}>
+                      <View style={styles.rowCopy}>
+                        <ThemedText type="smallBold">{item.name}</ThemedText>
+                        <ThemedText type="small" themeColor="textSecondary">
+                          {formatGrams(item.grams, 1)}
+                        </ThemedText>
+                      </View>
+                      <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                        {item.price} ₽
                       </ThemedText>
                     </View>
-                    <ThemedText type="smallBold" style={{ color: theme.primary }}>
-                      {item.price} ₽
-                    </ThemedText>
-                  </View>
-                ))}
-              </ThemedView>
+                  ))}
+                </ThemedView>
 
-              <ThemedText type="smallBold">Технический JSON заказа</ThemedText>
-              <ThemedView type="backgroundElement" style={styles.jsonCard}>
-                <ThemedText style={styles.jsonText}>{JSON.stringify(orderPayload, null, 2)}</ThemedText>
-              </ThemedView>
-            </ScrollView>
+                <ThemedText type="smallBold">Технический JSON заказа</ThemedText>
+                <ThemedView type="backgroundElement" style={styles.jsonCard}>
+                  <ThemedText style={styles.jsonText}>{JSON.stringify(orderPayload, null, 2)}</ThemedText>
+                </ThemedView>
+              </ScrollView>
+            ) : null}
           </ThemedView>
         </View>
       </Modal>
@@ -225,6 +247,14 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     padding: Spacing.four,
     gap: Spacing.two,
+    alignItems: 'center',
+  },
+  storeBlock: {
+    gap: Spacing.two,
+  },
+  storeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   listCard: {

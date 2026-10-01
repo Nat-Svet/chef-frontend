@@ -9,9 +9,11 @@ export type TimewebMenuDay = {
 
 export type TimewebMenu = {
   store: string;
+  stores: string[];
   totalCost: number;
   nutrition: { kcal: number; protein: number; fat: number; carb: number } | null;
   zeroWasteNotes: string;
+  scarcityNotice: string | null;
   days: TimewebMenuDay[];
 };
 
@@ -64,4 +66,28 @@ export async function generateMenuOnServer(userId: string): Promise<GenerateMenu
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function regenerateMealOnServer(
+  userId: string,
+  mealType: 'завтрак' | 'обед' | 'ужин',
+  excludeIds: number[],
+): Promise<{ recipeId: number }> {
+  if (!TIMEWEB_API_URL) {
+    throw new Error('Задайте EXPO_PUBLIC_TIMEWEB_API_URL в файле .env');
+  }
+
+  const response = await fetch(`${TIMEWEB_API_URL}/api/regenerate-meal`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, mealType, excludeIds }),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as { recipeId?: number; error?: string };
+
+  if (!response.ok || typeof payload.recipeId !== 'number') {
+    throw new Error(payload.error || `Сервер ответил ${response.status}`);
+  }
+
+  return { recipeId: payload.recipeId };
 }

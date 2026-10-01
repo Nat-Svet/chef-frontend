@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { generateMenuOnServer } from '@/lib/api';
-import { hydrateGeneratedMenu, type GeneratedMenu, type Meal } from '@/lib/menu';
+import type { WeekDay } from '@/constants/catalog';
+import { generateMenuOnServer, regenerateMealOnServer } from '@/lib/api';
+import { hydrateGeneratedMenu, swapMeal, type GeneratedMenu, type Meal } from '@/lib/menu';
+import type { MealType } from '@/lib/types';
 
 const MENU_STORAGE_KEY = 'chef.generated-menu.v1';
 
@@ -11,9 +13,11 @@ type MenuContextValue = {
   menu: GeneratedMenu | null;
   generating: boolean;
   error: string | null;
+  regeneratingSlot: string | null;
   generateMenu: (userId: string) => Promise<void>;
   clearMenu: () => Promise<void>;
   getMealById: (id: string | string[] | undefined) => Meal | undefined;
+  regenerateMeal: (day: WeekDay, mealType: MealType) => Promise<void>;
 };
 
 const MenuContext = createContext<MenuContextValue | null>(null);
@@ -23,6 +27,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   const [menu, setMenu] = useState<GeneratedMenu | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [regeneratingSlot, setRegeneratingSlot] = useState<string | null>(null);
   const inflight = useRef(false);
 
   useEffect(() => {
@@ -84,9 +89,27 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     [menu],
   );
 
+  const regenerateMeal = useCallback(
+    async (day: WeekDay, mealType: MealType) => {
+      if (!menu) return;
+      const slotKey = `${day}-${mealType}`;
+      setRegeneratingSlot(slotKey);
+      try {
+        const excludeIds = [...new Set(menu.days.flatMap((row) => [row.breakfastId, row.lunchId, row.dinnerId]))];
+        const { recipeId } = await regenerateMealOnServer(menu.userId, mealType, excludeIds);
+        const next = await swapMeal(menu, day, mealType, recipeId);
+        setMenu(next);
+        await AsyncStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(next));
+      } finally {
+        setRegeneratingSlot(null);
+      }
+    },
+    [menu],
+  );
+
   const value = useMemo(
-    () => ({ ready, menu, generating, error, generateMenu, clearMenu, getMealById }),
-    [ready, menu, generating, error, generateMenu, clearMenu, getMealById],
+    () => ({ ready, menu, generating, error, regeneratingSlot, generateMenu, clearMenu, getMealById, regenerateMeal }),
+    [ready, menu, generating, error, regeneratingSlot, generateMenu, clearMenu, getMealById, regenerateMeal],
   );
 
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;

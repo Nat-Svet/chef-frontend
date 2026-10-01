@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useMenu } from '@/hooks/use-menu';
 import { usePreferences } from '@/hooks/use-preferences';
-import { formatGrams, groupShoppingList } from '@/lib/menu';
+import { formatGrams, groupShoppingItemsByStore, groupShoppingList } from '@/lib/menu';
 import { useTheme } from '@/hooks/use-theme';
 import { rememberOwnedItems } from '@/lib/shopping-selection';
 
@@ -20,10 +20,16 @@ export default function ShoppingListScreen() {
   const [owned, setOwned] = useState<string[]>([]);
 
   const items = menu?.shoppingItems ?? [];
-  const groups = useMemo(() => groupShoppingList(items), [items]);
+  const toBuy = useMemo(() => items.filter((item) => !owned.includes(item.name)), [items, owned]);
+  const stores = menu?.stores ?? [];
+  const isMultiStore = stores.length > 1;
   const store = menu?.store ?? preferences.selectedStores[0] ?? 'Самокат';
 
-  const toBuy = items.filter((item) => !owned.includes(item.name));
+  const storeSections = useMemo(() => {
+    if (!isMultiStore) return [{ store, items: toBuy, total: toBuy.reduce((sum, item) => sum + item.price, 0) }];
+    return groupShoppingItemsByStore(toBuy);
+  }, [isMultiStore, store, toBuy]);
+
   const total = toBuy.reduce((sum, item) => sum + item.price, 0);
 
   function toggleOwned(name: string) {
@@ -71,64 +77,77 @@ export default function ShoppingListScreen() {
           </ThemedView>
         ) : null}
 
-        {groups.map((group) => (
-          <View key={group.category} style={styles.group}>
-            <ThemedText type="smallBold">
-              {group.emoji} {group.category}
-            </ThemedText>
-            <ThemedView type="backgroundElement" style={styles.card}>
-              {group.items.map((item, index) => {
-                const haveIt = owned.includes(item.name);
-                return (
-                  <Pressable
-                    key={item.name}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: haveIt }}
-                    onPress={() => toggleOwned(item.name)}
-                    style={[
-                      styles.row,
-                      index < group.items.length - 1 && {
-                        borderBottomWidth: StyleSheet.hairlineWidth,
-                        borderBottomColor: theme.backgroundSelected,
-                      },
-                      haveIt && styles.rowOwned,
-                    ]}>
-                    <View
-                      style={[
-                        styles.checkbox,
-                        {
-                          backgroundColor: haveIt ? theme.primary : theme.background,
-                          borderColor: haveIt ? theme.primary : theme.backgroundSelected,
-                        },
-                      ]}>
-                      {haveIt ? (
-                        <ThemedText type="smallBold" style={styles.checkMark}>
-                          ✓
+        {storeSections.map((section) => (
+          <View key={section.store} style={styles.storeSection}>
+            {isMultiStore ? (
+              <View style={styles.storeHeader}>
+                <ThemedText type="smallBold">🏪 {section.store}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {section.total.toLocaleString('ru-RU')} ₽
+                </ThemedText>
+              </View>
+            ) : null}
+
+            {groupShoppingList(section.items).map((group) => (
+              <View key={group.category} style={styles.group}>
+                <ThemedText type="smallBold">
+                  {group.emoji} {group.category}
+                </ThemedText>
+                <ThemedView type="backgroundElement" style={styles.card}>
+                  {group.items.map((item, index) => {
+                    const haveIt = owned.includes(item.name);
+                    return (
+                      <Pressable
+                        key={item.name}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: haveIt }}
+                        onPress={() => toggleOwned(item.name)}
+                        style={[
+                          styles.row,
+                          index < group.items.length - 1 && {
+                            borderBottomWidth: StyleSheet.hairlineWidth,
+                            borderBottomColor: theme.backgroundSelected,
+                          },
+                          haveIt && styles.rowOwned,
+                        ]}>
+                        <View
+                          style={[
+                            styles.checkbox,
+                            {
+                              backgroundColor: haveIt ? theme.primary : theme.background,
+                              borderColor: haveIt ? theme.primary : theme.backgroundSelected,
+                            },
+                          ]}>
+                          {haveIt ? (
+                            <ThemedText type="smallBold" style={styles.checkMark}>
+                              ✓
+                            </ThemedText>
+                          ) : null}
+                        </View>
+                        <View style={styles.rowCopy}>
+                          <ThemedText
+                            type="smallBold"
+                            style={haveIt ? [styles.ownedText, { color: theme.textSecondary }] : undefined}>
+                            {item.name}
+                          </ThemedText>
+                          <ThemedText type="small" themeColor="textSecondary">
+                            {haveIt ? 'У меня это есть' : formatGrams(item.grams, 1)}
+                          </ThemedText>
+                        </View>
+                        <ThemedText
+                          type="smallBold"
+                          style={{
+                            color: haveIt ? theme.textSecondary : theme.primary,
+                            textDecorationLine: haveIt ? 'line-through' : 'none',
+                          }}>
+                          {item.price} ₽
                         </ThemedText>
-                      ) : null}
-                    </View>
-                    <View style={styles.rowCopy}>
-                      <ThemedText
-                        type="smallBold"
-                        style={haveIt ? [styles.ownedText, { color: theme.textSecondary }] : undefined}>
-                        {item.name}
-                      </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {haveIt ? 'У меня это есть' : formatGrams(item.grams, 1)}
-                      </ThemedText>
-                    </View>
-                    <ThemedText
-                      type="smallBold"
-                      style={{
-                        color: haveIt ? theme.textSecondary : theme.primary,
-                        textDecorationLine: haveIt ? 'line-through' : 'none',
-                      }}>
-                      {item.price} ₽
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
-            </ThemedView>
+                      </Pressable>
+                    );
+                  })}
+                </ThemedView>
+              </View>
+            ))}
           </View>
         ))}
       </ScrollView>
@@ -163,7 +182,7 @@ export default function ShoppingListScreen() {
               { backgroundColor: theme.accent, opacity: toBuy.length === 0 ? 0.4 : 1 },
             ]}>
             <ThemedText type="smallBold" style={styles.ctaLabel}>
-              Заказать доставку в {store}
+              {isMultiStore ? 'Перейти к заказу' : `Заказать доставку в ${store}`}
             </ThemedText>
           </Pressable>
         </View>
@@ -187,6 +206,14 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: Spacing.one,
+  },
+  storeSection: {
+    gap: Spacing.two,
+  },
+  storeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   group: {
     gap: Spacing.two,

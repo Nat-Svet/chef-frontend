@@ -28,9 +28,11 @@ export type GeneratedMenu = {
   userId: string;
   isFallback: boolean;
   store: string;
+  stores: string[];
   totalCost: number;
   nutrition: { kcal: number; protein: number; fat: number; carb: number } | null;
   zeroWasteNotes: string;
+  scarcityNotice: string | null;
   days: { day: WeekDay; breakfastId: number; lunchId: number; dinnerId: number }[];
   recipes: Record<number, Meal>;
   shoppingItems: ShoppingItem[];
@@ -43,6 +45,7 @@ export type ShoppingItem = {
   grams: number;
   category: ShoppingCategory;
   price: number;
+  store: string;
 };
 
 const MEAL_EMOJI: Record<MealType, string> = {
@@ -102,6 +105,18 @@ export function groupShoppingList(items: ShoppingItem[]) {
   })).filter((group) => group.items.length > 0);
 }
 
+export function groupShoppingItemsByStore(items: ShoppingItem[]) {
+  const stores = [...new Set(items.map((item) => item.store))];
+  return stores.map((store) => {
+    const storeItems = items.filter((item) => item.store === store);
+    return {
+      store,
+      items: storeItems,
+      total: storeItems.reduce((sum, item) => sum + item.price, 0),
+    };
+  });
+}
+
 export function mealsForDay(menu: GeneratedMenu, day: WeekDay): Meal[] {
   const row = menu.days.find((item) => item.day === day) ?? menu.days[0];
   if (!row) return [];
@@ -159,9 +174,11 @@ export async function hydrateGeneratedMenu(
     userId,
     isFallback,
     store: raw.store,
+    stores: raw.stores?.length ? raw.stores : [raw.store],
     totalCost: Number(raw.totalCost) || 0,
     nutrition: raw.nutrition,
     zeroWasteNotes: raw.zeroWasteNotes || '',
+    scarcityNotice: raw.scarcityNotice ?? null,
     days,
     recipes,
     shoppingItems: [],
@@ -169,6 +186,43 @@ export async function hydrateGeneratedMenu(
 
   menu.shoppingItems = buildShoppingItems(menu, (productsResult.data ?? []) as StoreProduct[]);
   return menu;
+}
+
+/** Точечная замена одного блюда (кнопка «Изменить меню»): подменяет id в
+ *  нужном слоте, при необходимости догружает карточку рецепта из Supabase
+ *  и пересчитывает список покупок с нуля. */
+export async function swapMeal(
+  menu: GeneratedMenu,
+  day: WeekDay,
+  mealType: MealType,
+  newRecipeId: number,
+): Promise<GeneratedMenu> {
+  let meal = menu.recipes[newRecipeId];
+
+  if (!meal) {
+    const [recipeResult, ingredientsResult] = await Promise.all([
+      supabase.from('recipes').select('*').eq('id', newRecipeId).single(),
+      supabase.from('recipe_ingredients').select('*').eq('recipe_id', newRecipeId),
+    ]);
+    if (recipeResult.error || !recipeResult.data) {
+      throw recipeResult.error ?? new Error('Рецепт не найден');
+    }
+    meal = toMeal(recipeResult.data as Recipe, (ingredientsResult.data ?? []) as RecipeIngredient[]);
+  }
+
+  const key = mealType === 'завтрак' ? 'breakfastId' : mealType === 'обед' ? 'lunchId' : 'dinnerId';
+  const days = menu.days.map((row) => (row.day === day ? { ...row, [key]: newRecipeId } : row));
+  const recipes = { ...menu.recipes, [newRecipeId]: meal };
+
+  const nextMenu: GeneratedMenu = { ...menu, days, recipes, shoppingItems: [] };
+
+  const { data: products, error } = await supabase.from('store_products').select('*');
+  if (error) throw error;
+
+  nextMenu.shoppingItems = buildShoppingItems(nextMenu, (products ?? []) as StoreProduct[]);
+  nextMenu.totalCost = nextMenu.shoppingItems.reduce((sum, item) => sum + item.price, 0);
+
+  return nextMenu;
 }
 
 function toMeal(recipe: Recipe, ingredients: RecipeIngredient[]): Meal {
@@ -221,7 +275,7 @@ function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): Shop
   }
 
   const storeProducts = products.filter(
-    (item) => item.store_name === menu.store && item.in_stock !== false,
+    (item) => menu.stores.includes(item.store_name) && item.in_stock !== false,
   );
 
   const raw = [...gramsByName.entries()].map(([name, grams]) => {
@@ -235,6 +289,7 @@ function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): Shop
       grams,
       category: INGREDIENT_CATEGORY[name] ?? guessCategory(name),
       rawPrice,
+      store: product?.store_name ?? menu.stores[0] ?? menu.store,
     };
   });
 
@@ -245,6 +300,7 @@ function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): Shop
       name: item.name,
       grams: item.grams,
       category: item.category,
+      store: item.store,
       price: Math.max(1, Math.round((item.rawPrice / rawTotal) * target)),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
@@ -257,15 +313,23 @@ function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): Shop
   return items;
 }
 
+/** Среди совпадений по названию (возможно, в разных магазинах) берёт самый
+ *  дешёвый за грамм — так Закупщик реально оптимизирует корзину по выгоде. */
 function matchProduct(name: string, products: StoreProduct[]) {
   const needle = name.toLowerCase();
-  return (
-    products.find((item) => item.search_term.toLowerCase() === needle) ??
-    products.find(
-      (item) =>
-        needle.includes(item.search_term.toLowerCase()) || item.search_term.toLowerCase().includes(needle),
-    )
+  const candidates = products.filter(
+    (item) =>
+      item.search_term.toLowerCase() === needle ||
+      needle.includes(item.search_term.toLowerCase()) ||
+      item.search_term.toLowerCase().includes(needle),
   );
+  if (!candidates.length) return undefined;
+
+  return candidates.reduce((best, cur) => {
+    const bestPerGram = best.price / (best.pack_weight_grams && best.pack_weight_grams > 0 ? best.pack_weight_grams : 1);
+    const curPerGram = cur.price / (cur.pack_weight_grams && cur.pack_weight_grams > 0 ? cur.pack_weight_grams : 1);
+    return curPerGram < bestPerGram ? cur : best;
+  });
 }
 
 function guessCategory(name: string): ShoppingCategory {

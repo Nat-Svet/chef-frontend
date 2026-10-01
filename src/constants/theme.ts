@@ -7,30 +7,38 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+/** Палитра «Средиземноморский премиум»: молочно-кремовый фон, спелый
+ *  томатный акцент на действиях, приглушённый оливковый — на тегах/КБЖУ. */
 export const Colors = {
   light: {
-    text: '#1C1917',
-    background: '#FBF7F0',
-    backgroundElement: '#F3EDE3',
-    backgroundSelected: '#E8DFD2',
-    textSecondary: '#6B645C',
-    primary: '#1F6F4A',
-    primarySoft: '#E4F3EB',
-    accent: '#E07A3D',
-    accentSoft: '#FBE8DC',
+    text: '#3A2E28',
+    background: '#FBF8F2',
+    backgroundElement: '#F2EBDD',
+    backgroundSelected: '#E6DCC8',
+    textSecondary: '#7A6F63',
+    primary: '#B5482F',
+    primarySoft: '#F3DCD2',
+    accent: '#7D8A52',
+    accentSoft: '#E6EADA',
   },
   dark: {
-    text: '#F5F0E8',
-    background: '#14110E',
-    backgroundElement: '#221E1A',
-    backgroundSelected: '#2E2822',
-    textSecondary: '#B0A89E',
-    primary: '#4CAF7A',
-    primarySoft: '#1A3328',
-    accent: '#F0A06A',
-    accentSoft: '#3A2A22',
+    text: '#F3ECE2',
+    background: '#1C1613',
+    backgroundElement: '#2A221D',
+    backgroundSelected: '#372C24',
+    textSecondary: '#C2B6A8',
+    primary: '#D97A5C',
+    primarySoft: '#3A241D',
+    accent: '#9FAE78',
+    accentSoft: '#303524',
   },
 } as const;
+
+export const SplashColors = {
+  background: '#7A3524',
+  title: '#FBF8F2',
+  tagline: '#EBD4C8',
+};
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
