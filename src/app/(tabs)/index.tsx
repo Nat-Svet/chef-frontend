@@ -82,6 +82,9 @@ export default function MenuScreen() {
   const remaining = Math.max(0, preferences.budgetLimit - spent);
   const progress = preferences.budgetLimit > 0 ? spent / preferences.budgetLimit : 0;
   const meals = mealsForDay(menu, day);
+  // Меню, сохранённое в AsyncStorage до появления поля stores, при
+  // загрузке через JSON.parse не содержит его вовсе — подстраховываемся.
+  const stores = menu.stores?.length ? menu.stores : menu.store ? [menu.store] : [];
 
   return (
     <Screen>
@@ -91,7 +94,8 @@ export default function MenuScreen() {
         </ThemedText>
         <ThemedText type="heading">Шеф в Кармане</ThemedText>
         <ThemedText themeColor="textSecondary">
-          Рацион на неделю собрали ИИ-агенты. {menu.stores.length > 1 ? 'Магазины' : 'Магазин'}: {menu.stores.join(' + ')}.
+          Рацион на неделю собрали ИИ-агенты.{' '}
+          {stores.length ? `${stores.length > 1 ? 'Магазины' : 'Магазин'}: ${stores.join(' + ')}.` : ''}
         </ThemedText>
       </View>
 
