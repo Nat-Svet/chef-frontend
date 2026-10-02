@@ -28,7 +28,6 @@ export type GeneratedMenu = {
   userId: string;
   isFallback: boolean;
   store: string;
-  stores: string[];
   totalCost: number;
   nutrition: { kcal: number; protein: number; fat: number; carb: number } | null;
   zeroWasteNotes: string;
@@ -104,18 +103,6 @@ export function groupShoppingList(items: ShoppingItem[]) {
   })).filter((group) => group.items.length > 0);
 }
 
-export function groupShoppingItemsByStore(items: ShoppingItem[]) {
-  const stores = [...new Set(items.map((item) => item.store))];
-  return stores.map((store) => {
-    const storeItems = items.filter((item) => item.store === store);
-    return {
-      store,
-      items: storeItems,
-      total: storeItems.reduce((sum, item) => sum + item.price, 0),
-    };
-  });
-}
-
 export function mealsForDay(menu: GeneratedMenu, day: WeekDay): Meal[] {
   const row = menu.days.find((item) => item.day === day) ?? menu.days[0];
   if (!row) return [];
@@ -173,7 +160,6 @@ export async function hydrateGeneratedMenu(
     userId,
     isFallback,
     store: raw.store,
-    stores: raw.stores?.length ? raw.stores : [raw.store],
     totalCost: Number(raw.totalCost) || 0,
     nutrition: raw.nutrition,
     zeroWasteNotes: raw.zeroWasteNotes || '',
@@ -184,6 +170,7 @@ export async function hydrateGeneratedMenu(
   };
 
   menu.shoppingItems = buildShoppingItems(menu, (productsResult.data ?? []) as StoreProduct[]);
+  menu.totalCost = menu.shoppingItems.reduce((sum, item) => sum + item.price, 0);
   return menu;
 }
 
@@ -274,7 +261,7 @@ function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): Shop
   }
 
   const storeProducts = products.filter(
-    (item) => menu.stores.includes(item.store_name) && item.in_stock !== false,
+    (item) => item.store_name === menu.store && item.in_stock !== false,
   );
 
   const raw = [...gramsByName.entries()].map(([name, grams]) => {
@@ -288,26 +275,20 @@ function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): Shop
       grams,
       category: INGREDIENT_CATEGORY[name] ?? guessCategory(name),
       rawPrice,
-      store: product?.store_name ?? menu.stores[0] ?? menu.store,
+      store: menu.store,
     };
   });
 
-  const rawTotal = raw.reduce((sum, item) => sum + item.rawPrice, 0) || 1;
-  const target = menu.totalCost > 0 ? Math.round(menu.totalCost) : Math.round(rawTotal);
+  // Цены — ровно по каталогу выбранного магазина, без подгонки под бюджет.
   const items = raw
     .map((item) => ({
       name: item.name,
       grams: item.grams,
       category: item.category,
       store: item.store,
-      price: Math.max(1, Math.round((item.rawPrice / rawTotal) * target)),
+      price: item.rawPrice,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-
-  const drift = target - items.reduce((sum, item) => sum + item.price, 0);
-  if (items.length && drift !== 0) {
-    items[items.length - 1].price = Math.max(1, items[items.length - 1].price + drift);
-  }
 
   return items;
 }

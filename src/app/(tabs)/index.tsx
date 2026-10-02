@@ -109,7 +109,9 @@ export default function MenuScreen() {
         <View style={styles.budgetRow}>
           <ThemedText type="smallBold">Недельный бюджет</ThemedText>
           <ThemedText type="smallBold" style={{ color: theme.primary }}>
-            {remaining.toLocaleString('ru-RU')} ₽ осталось
+            {spent > preferences.budgetLimit
+              ? `+${(spent - preferences.budgetLimit).toLocaleString('ru-RU')} ₽ сверх бюджета`
+              : `${remaining.toLocaleString('ru-RU')} ₽ осталось`}
           </ThemedText>
         </View>
         <View style={[styles.track, { backgroundColor: theme.backgroundSelected }]}>

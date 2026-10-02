@@ -27,7 +27,7 @@ export default function OnboardingScreen() {
   const [diet, setDiet] = useState<string[]>(preferences.dietTags);
   const [budget, setBudget] = useState(preferences.budgetLimit);
   const [equipment, setEquipment] = useState<string[]>(preferences.equipmentTags);
-  const [stores, setStores] = useState<string[]>(preferences.selectedStores);
+  const [stores, setStores] = useState<string[]>(preferences.selectedStores.slice(0, 1));
 
   const [saving, setSaving] = useState(false);
 
@@ -201,15 +201,15 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={[styles.block, cardColors]}>
-        <ThemedText type="smallBold">Любимые магазины</ThemedText>
+        <ThemedText type="smallBold">Любимый магазин</ThemedText>
         {STORE_OPTIONS.map((option) => {
           const active = stores.includes(option.id);
           return (
             <Pressable
               key={option.id}
-              accessibilityRole="checkbox"
+              accessibilityRole="radio"
               accessibilityState={{ checked: active }}
-              onPress={() => setStores(toggleValue(stores, option.id))}
+              onPress={() => setStores([option.id])}
               style={[
                 styles.selectCard,
                 {
@@ -226,19 +226,8 @@ export default function OnboardingScreen() {
                   {option.hint}
                 </ThemedText>
               </View>
-              <View
-                style={[
-                  styles.checkbox,
-                  {
-                    backgroundColor: active ? theme.accent : theme.background,
-                    borderColor: active ? theme.accent : theme.backgroundSelected,
-                  },
-                ]}>
-                {active ? (
-                  <ThemedText type="smallBold" style={styles.checkMark}>
-                    ✓
-                  </ThemedText>
-                ) : null}
+              <View style={[styles.radio, { borderColor: active ? theme.accent : theme.backgroundSelected }]}>
+                {active ? <View style={[styles.radioDot, { backgroundColor: theme.accent }]} /> : null}
               </View>
             </Pressable>
           );
@@ -259,7 +248,7 @@ export default function OnboardingScreen() {
       </Pressable>
       {!canGenerate ? (
         <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-          Выберите цель, технику и хотя бы один магазин
+          Выберите цель, технику и магазин
         </ThemedText>
       ) : null}
     </Screen>
@@ -352,6 +341,19 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  radio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   checkMark: {
     color: '#fff',
