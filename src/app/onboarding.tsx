@@ -24,7 +24,7 @@ export default function OnboardingScreen() {
   const theme = useTheme();
   const { preferences, savePreferences } = usePreferences();
   const { clearMenu } = useMenu();
-  const [diet, setDiet] = useState<string[]>(preferences.dietTags);
+  const [diet, setDiet] = useState<string[]>(preferences.dietTags.slice(0, 1));
   const [budget, setBudget] = useState(preferences.budgetLimit);
   const [equipment, setEquipment] = useState<string[]>(preferences.equipmentTags);
   const [stores, setStores] = useState<string[]>(preferences.selectedStores.slice(0, 1));
@@ -98,15 +98,16 @@ export default function OnboardingScreen() {
       </View>
 
       <View style={[styles.block, cardColors]}>
-        <ThemedText type="smallBold">Цель питания</ThemedText>
+        <ThemedText type="smallBold">Главная цель недели</ThemedText>
         <View style={styles.tags}>
           {DIET_OPTIONS.map((option) => {
             const active = diet.includes(option.id);
             return (
               <Pressable
                 key={option.id}
-                accessibilityRole="button"
-                onPress={() => setDiet(toggleValue(diet, option.id))}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
+                onPress={() => setDiet([option.id])}
                 style={[
                   styles.tag,
                   {
@@ -363,12 +364,14 @@ const styles = StyleSheet.create({
   cta: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
     minHeight: 52,
     borderRadius: Spacing.three,
     paddingVertical: Spacing.three,
   },
   ctaLabel: {
     color: '#fff',
+    textAlign: 'center',
   },
   hint: {
     textAlign: 'center',

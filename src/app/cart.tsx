@@ -220,12 +220,14 @@ const styles = StyleSheet.create({
   cta: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
     minHeight: 52,
     borderRadius: Spacing.three,
     paddingVertical: Spacing.three,
   },
   ctaLabel: {
     color: '#fff',
+    textAlign: 'center',
   },
   backdrop: {
     flex: 1,
