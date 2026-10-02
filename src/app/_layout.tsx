@@ -10,7 +10,7 @@ import '@/constants/theme';
 import { MenuProvider } from '@/hooks/use-menu';
 import { PreferencesProvider, usePreferences } from '@/hooks/use-preferences';
 
-const SPLASH_MIN_DURATION = 4000;
+const SPLASH_MIN_DURATION = 4500;
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   /* сплэш уже скрыт системой — не критично */
