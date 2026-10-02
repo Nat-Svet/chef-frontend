@@ -89,7 +89,7 @@ export default function CartScreen() {
           Собираем корзину для {fallbackStore}...
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.center}>
-          Подбираем SKU, фасуем остатки и готовим deep link в доставку.
+          Подбираем товары и фасуем остатки.
         </ThemedText>
       </Screen>
     );
@@ -110,7 +110,7 @@ export default function CartScreen() {
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.center}>
           {items.length} позиций · {total.toLocaleString('ru-RU')} ₽
-          {sections.length > 1 ? ' · разделены по магазинам, где выгоднее' : ' · можно отправлять по Deep Link'}
+          {sections.length > 1 ? ' · по магазинам, где выгоднее. Можно отправлять!' : ' · Можно отправлять!'}
         </ThemedText>
       </ThemedView>
 

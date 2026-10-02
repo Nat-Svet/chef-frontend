@@ -24,6 +24,8 @@ export default function ShoppingListScreen() {
   const stores = menu?.stores ?? [];
   const isMultiStore = stores.length > 1;
   const store = menu?.store ?? preferences.selectedStores[0] ?? 'Самокат';
+  const itemStores = [...new Set(items.map((item) => item.store))];
+  const summaryStores = itemStores.length ? itemStores : stores.length ? stores : [store];
 
   const storeSections = useMemo(() => {
     if (!isMultiStore) return [{ store, items: toBuy, total: toBuy.reduce((sum, item) => sum + item.price, 0) }];
@@ -58,15 +60,10 @@ export default function ShoppingListScreen() {
         ]}>
         <View style={styles.header}>
           <ThemedText type="heading">Список покупок</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Ваша корзина на 7 дней · {store}. Отметьте «У меня это есть» — позицию вычеркнем из
-            заказа.
+          <ThemedText style={[styles.summary, { color: theme.textSecondary }]}>
+            Ингредиенты для вашего меню оптимизированы по лучшим ценам.{'\n'}
+            {summaryStores.length > 1 ? 'Магазины' : 'Магазин'}: {summaryStores.join(', ')} · Товаров: {items.length} шт.
           </ThemedText>
-          {menu?.zeroWasteNotes ? (
-            <ThemedText type="small" themeColor="textSecondary">
-              Zero Waste: {menu.zeroWasteNotes}
-            </ThemedText>
-          ) : null}
         </View>
 
         {items.length === 0 ? (
@@ -214,6 +211,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  summary: {
+    fontSize: 12,
+    lineHeight: 17,
   },
   group: {
     gap: Spacing.two,
