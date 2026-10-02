@@ -5,6 +5,8 @@ export type UserPreferences = {
   equipmentTags: string[];
   selectedStores: string[];
   profileId: string | null;
+  /** На сколько человек (порций) покупаем продукты. */
+  portions: number;
 };
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -14,6 +16,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   equipmentTags: [],
   selectedStores: [],
   profileId: null,
+  portions: 1,
 };
 
 export const PREFERENCES_STORAGE_KEY = 'chef.preferences.v1';

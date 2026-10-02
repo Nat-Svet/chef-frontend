@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Screen } from '@/components/screen';
@@ -11,16 +11,12 @@ import { useMenu } from '@/hooks/use-menu';
 import { useTheme } from '@/hooks/use-theme';
 import { formatGrams } from '@/lib/menu';
 
-const PORTIONS = [1, 2, 4] as const;
-type PortionCount = (typeof PORTIONS)[number];
-
 
 export default function RecipeScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getMealById } = useMenu();
+  const { getMealById, portions, setPortions } = useMenu();
   const meal = getMealById(id);
-  const [portions, setPortions] = useState<PortionCount>(1);
 
   const ingredients = useMemo(
     () =>
@@ -99,24 +95,33 @@ export default function RecipeScreen() {
           </ThemedText>
         </View>
 
-        <View style={styles.portions}>
-          {PORTIONS.map((count) => {
-            const active = count === portions;
-            return (
-              <Pressable
-                key={count}
-                accessibilityRole="button"
-                onPress={() => setPortions(count)}
-                style={[
-                  styles.portionBtn,
-                  { backgroundColor: active ? theme.primary : theme.backgroundElement },
-                ]}>
-                <ThemedText type="smallBold" style={{ color: active ? '#fff' : theme.text }}>
-                  {count} {portionWord(count)}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
+        <View style={[styles.stepper, { backgroundColor: theme.backgroundElement }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Меньше порций"
+            disabled={portions <= 1}
+            onPress={() => void setPortions(portions - 1)}
+            style={[styles.stepBtn, { backgroundColor: theme.primarySoft, opacity: portions <= 1 ? 0.4 : 1 }]}>
+            <ThemedText type="heading" style={{ color: theme.primary }}>
+              −
+            </ThemedText>
+          </Pressable>
+          <View style={styles.stepValue}>
+            <ThemedText type="heading">{portions}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {portionWord(portions)}
+            </ThemedText>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Больше порций"
+            disabled={portions >= 20}
+            onPress={() => void setPortions(portions + 1)}
+            style={[styles.stepBtn, { backgroundColor: theme.primary, opacity: portions >= 20 ? 0.4 : 1 }]}>
+            <ThemedText type="heading" style={{ color: '#fff' }}>
+              +
+            </ThemedText>
+          </Pressable>
         </View>
 
         <ThemedView type="backgroundElement" style={styles.listCard}>
@@ -166,8 +171,12 @@ export default function RecipeScreen() {
 }
 
 function portionWord(count: number) {
-  if (count === 1) return 'порция';
-  return 'порции';
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) return 'порций';
+  if (mod10 === 1) return 'порция';
+  if (mod10 >= 2 && mod10 <= 4) return 'порции';
+  return 'порций';
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -228,17 +237,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  portions: {
+  stepper: {
     flexDirection: 'row',
-    gap: Spacing.two,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: Spacing.four,
+    padding: Spacing.two,
   },
-  portionBtn: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: Spacing.three,
+  stepBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.two,
+  },
+  stepValue: {
+    alignItems: 'center',
+    minWidth: 80,
   },
   listCard: {
     borderRadius: Spacing.four,

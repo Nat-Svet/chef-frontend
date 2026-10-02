@@ -28,7 +28,7 @@ export function getTimewebApiUrl() {
   return TIMEWEB_API_URL;
 }
 
-export async function generateMenuOnServer(userId: string): Promise<GenerateMenuResponse> {
+export async function generateMenuOnServer(userId: string, portions = 1): Promise<GenerateMenuResponse> {
   if (!TIMEWEB_API_URL) {
     throw new Error('Задайте EXPO_PUBLIC_TIMEWEB_API_URL в файле .env');
   }
@@ -40,7 +40,7 @@ export async function generateMenuOnServer(userId: string): Promise<GenerateMenu
     const response = await fetch(`${TIMEWEB_API_URL}/api/generate-menu`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ userId, portions }),
       signal: controller.signal,
     });
 
@@ -72,6 +72,8 @@ export async function regenerateMealOnServer(
   userId: string,
   mealType: 'завтрак' | 'обед' | 'ужин',
   excludeIds: number[],
+  rejectedIds: number[] = [],
+  siblingIds: number[] = [],
 ): Promise<{ recipeId: number }> {
   if (!TIMEWEB_API_URL) {
     throw new Error('Задайте EXPO_PUBLIC_TIMEWEB_API_URL в файле .env');
@@ -80,7 +82,7 @@ export async function regenerateMealOnServer(
   const response = await fetch(`${TIMEWEB_API_URL}/api/regenerate-meal`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, mealType, excludeIds }),
+    body: JSON.stringify({ userId, mealType, excludeIds, rejectedIds, siblingIds }),
   });
 
   const payload = (await response.json().catch(() => ({}))) as { recipeId?: number; error?: string };

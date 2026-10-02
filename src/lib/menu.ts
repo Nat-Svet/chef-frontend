@@ -27,6 +27,10 @@ export type Meal = {
 export type GeneratedMenu = {
   userId: string;
   isFallback: boolean;
+  /** Сколько порций покупаем; у старых сохранённых меню поля нет — считаем 1. */
+  portions: number;
+  /** Отвергнутые пользователем рецепты («Массив исключений» для замены блюда). */
+  rejectedIds: number[];
   store: string;
   totalCost: number;
   nutrition: { kcal: number; protein: number; fat: number; carb: number } | null;
@@ -123,6 +127,7 @@ export async function hydrateGeneratedMenu(
   userId: string,
   raw: TimewebMenu,
   isFallback: boolean,
+  portions = 1,
 ): Promise<GeneratedMenu> {
   const days = WEEK_DAYS.map((day, index) => {
     const row = raw.days.find((item) => item.day === day) ?? raw.days[index];
@@ -159,6 +164,8 @@ export async function hydrateGeneratedMenu(
   const menu: GeneratedMenu = {
     userId,
     isFallback,
+    portions,
+    rejectedIds: [],
     store: raw.store,
     totalCost: Number(raw.totalCost) || 0,
     nutrition: raw.nutrition,
@@ -197,10 +204,12 @@ export async function swapMeal(
   }
 
   const key = mealType === 'завтрак' ? 'breakfastId' : mealType === 'обед' ? 'lunchId' : 'dinnerId';
+  const previousId = menu.days.find((row) => row.day === day)?.[key];
   const days = menu.days.map((row) => (row.day === day ? { ...row, [key]: newRecipeId } : row));
+  const rejectedIds = previousId === undefined ? (menu.rejectedIds ?? []) : [...new Set([...(menu.rejectedIds ?? []), previousId])];
   const recipes = { ...menu.recipes, [newRecipeId]: meal };
 
-  const nextMenu: GeneratedMenu = { ...menu, days, recipes, shoppingItems: [] };
+  const nextMenu: GeneratedMenu = { ...menu, days, recipes, rejectedIds, shoppingItems: [] };
 
   const { data: products, error } = await supabase.from('store_products').select('*');
   if (error) throw error;
@@ -209,6 +218,17 @@ export async function swapMeal(
   nextMenu.totalCost = nextMenu.shoppingItems.reduce((sum, item) => sum + item.price, 0);
 
   return nextMenu;
+}
+
+/** Меняет число порций и пересчитывает вес/стоимость всей корзины. */
+export async function applyPortions(menu: GeneratedMenu, portions: number): Promise<GeneratedMenu> {
+  const { data: products, error } = await supabase.from('store_products').select('*');
+  if (error) throw error;
+
+  const next: GeneratedMenu = { ...menu, portions, shoppingItems: [] };
+  next.shoppingItems = buildShoppingItems(next, (products ?? []) as StoreProduct[]);
+  next.totalCost = next.shoppingItems.reduce((sum, item) => sum + item.price, 0);
+  return next;
 }
 
 function toMeal(recipe: Recipe, ingredients: RecipeIngredient[]): Meal {
@@ -256,7 +276,7 @@ function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): Shop
     const meal = menu.recipes[recipeId];
     if (!meal) continue;
     for (const ingredient of meal.ingredients) {
-      gramsByName.set(ingredient.name, (gramsByName.get(ingredient.name) ?? 0) + ingredient.grams * times);
+      gramsByName.set(ingredient.name, (gramsByName.get(ingredient.name) ?? 0) + ingredient.grams * times * (menu.portions ?? 1));
     }
   }
 

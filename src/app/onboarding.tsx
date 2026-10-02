@@ -46,6 +46,7 @@ export default function OnboardingScreen() {
       equipmentTags: equipment,
       selectedStores: stores,
       profileId: preferences.profileId,
+      portions: preferences.portions ?? 1,
     };
 
     try {

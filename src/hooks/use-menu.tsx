@@ -2,8 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import type { WeekDay } from '@/constants/catalog';
+import { usePreferences } from '@/hooks/use-preferences';
 import { generateMenuOnServer, regenerateMealOnServer } from '@/lib/api';
-import { hydrateGeneratedMenu, swapMeal, type GeneratedMenu, type Meal } from '@/lib/menu';
+import { applyPortions, hydrateGeneratedMenu, swapMeal, type GeneratedMenu, type Meal } from '@/lib/menu';
 import type { MealType } from '@/lib/types';
 
 const MENU_STORAGE_KEY = 'chef.generated-menu.v1';
@@ -18,11 +19,16 @@ type MenuContextValue = {
   clearMenu: () => Promise<void>;
   getMealById: (id: string | string[] | undefined) => Meal | undefined;
   regenerateMeal: (day: WeekDay, mealType: MealType) => Promise<void>;
+  portions: number;
+  setPortions: (count: number) => Promise<void>;
 };
 
 const MenuContext = createContext<MenuContextValue | null>(null);
 
 export function MenuProvider({ children }: { children: ReactNode }) {
+  const { preferences, savePreferences } = usePreferences();
+  const portions = preferences.portions ?? 1;
+  const portionsRequest = useRef(0);
   const [ready, setReady] = useState(false);
   const [menu, setMenu] = useState<GeneratedMenu | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -57,8 +63,8 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await generateMenuOnServer(userId);
-      const next = await hydrateGeneratedMenu(response.userId, response.menu, response.isFallback);
+      const response = await generateMenuOnServer(userId, portions);
+      const next = await hydrateGeneratedMenu(response.userId, response.menu, response.isFallback, portions);
       setMenu(next);
       await AsyncStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(next));
     } catch (cause) {
@@ -72,7 +78,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       setGenerating(false);
       inflight.current = false;
     }
-  }, []);
+  }, [portions]);
 
   const clearMenu = useCallback(async () => {
     setMenu(null);
@@ -96,7 +102,15 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       setRegeneratingSlot(slotKey);
       try {
         const excludeIds = [...new Set(menu.days.flatMap((row) => [row.breakfastId, row.lunchId, row.dinnerId]))];
-        const { recipeId } = await regenerateMealOnServer(menu.userId, mealType, excludeIds);
+        const row = menu.days.find((item) => item.day === day);
+        const key = mealType === 'завтрак' ? 'breakfastId' : mealType === 'обед' ? 'lunchId' : 'dinnerId';
+        const currentId = row?.[key];
+        const siblingIds = row
+          ? [row.breakfastId, row.lunchId, row.dinnerId].filter((id) => id !== currentId)
+          : [];
+        // отвергнутые ранее + текущее блюдо, которое пользователь отвергает сейчас
+        const rejectedIds = [...new Set([...(menu.rejectedIds ?? []), ...(currentId === undefined ? [] : [currentId])])];
+        const { recipeId } = await regenerateMealOnServer(menu.userId, mealType, excludeIds, rejectedIds, siblingIds);
         const next = await swapMeal(menu, day, mealType, recipeId);
         setMenu(next);
         await AsyncStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(next));
@@ -107,9 +121,23 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     [menu],
   );
 
+  const setPortions = useCallback(
+    async (count: number) => {
+      const next = Math.min(20, Math.max(1, Math.round(count)));
+      const request = ++portionsRequest.current;
+      await savePreferences({ ...preferences, portions: next });
+      if (!menu) return;
+      const updated = await applyPortions(menu, next);
+      if (request !== portionsRequest.current) return; // пришёл более свежий клик
+      setMenu(updated);
+      await AsyncStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(updated));
+    },
+    [menu, preferences, savePreferences],
+  );
+
   const value = useMemo(
-    () => ({ ready, menu, generating, error, regeneratingSlot, generateMenu, clearMenu, getMealById, regenerateMeal }),
-    [ready, menu, generating, error, regeneratingSlot, generateMenu, clearMenu, getMealById, regenerateMeal],
+    () => ({ ready, menu, generating, error, regeneratingSlot, generateMenu, clearMenu, getMealById, regenerateMeal, portions, setPortions }),
+    [ready, menu, generating, error, regeneratingSlot, generateMenu, clearMenu, getMealById, regenerateMeal, portions, setPortions],
   );
 
   return <MenuContext.Provider value={value}>{children}</MenuContext.Provider>;
