@@ -2,7 +2,19 @@ export const STORES = ['Самокат', 'ВкусВилл', 'Пятерочка
 
 export const DIET_TAGS = ['ПП', 'Низкокалорийное', 'Быстро', 'Сытное', 'Семейное', 'Вегетарианское'] as const;
 
-export const EQUIPMENT_TAGS = ['Плита', 'Духовка', 'Мультиварка'] as const;
+/** Тег «Без готовки» не требует техники: такие блюда подходят всем, а у выбравших только его — единственные. */
+export const NO_COOK_TAG = 'Без готовки';
+
+export const EQUIPMENT_TAGS = [
+  'Плита',
+  'Духовка',
+  'Мультиварка',
+  'Микроволновка',
+  'Блендер / Миксер',
+  'Электрогриль / Аэрогриль',
+  'Тостер',
+  NO_COOK_TAG,
+] as const;
 
 export const WEEK_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
 
@@ -34,9 +46,14 @@ export const DIET_OPTIONS = [
 ] as const;
 
 export const EQUIPMENT_OPTIONS = [
-  { id: 'Плита', emoji: '🔥' },
-  { id: 'Духовка', emoji: '🍞' },
+  { id: 'Плита', emoji: '🍳' },
+  { id: 'Духовка', emoji: '💨' },
   { id: 'Мультиварка', emoji: '🍲' },
+  { id: 'Микроволновка', emoji: '🍿' },
+  { id: 'Блендер / Миксер', emoji: '🌪️' },
+  { id: 'Электрогриль / Аэрогриль', emoji: '🥩' },
+  { id: 'Тостер', emoji: '🍞' },
+  { id: NO_COOK_TAG, emoji: '🧊' },
 ] as const;
 
 export const STORE_OPTIONS = [

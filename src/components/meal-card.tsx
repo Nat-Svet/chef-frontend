@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { EQUIPMENT_TAGS } from '@/constants/catalog';
+import { EQUIPMENT_TAGS, NO_COOK_TAG } from '@/constants/catalog';
 import { Spacing } from '@/constants/theme';
 import { usePreferences } from '@/hooks/use-preferences';
 import type { Meal } from '@/lib/menu';
@@ -82,7 +82,7 @@ export const MealCard = forwardRef<View, MealCardProps>(function MealCard(
 
           {equipment.length ? (
             <ThemedText style={[styles.equipment, { color: theme.textSecondary }]}>
-              Понадобится: {equipment.join(', ')}
+              {equipment.length === 1 && equipment[0] === NO_COOK_TAG ? 'Готовить не нужно' : `Понадобится: ${equipment.join(', ')}`}
             </ThemedText>
           ) : null}
         </ThemedView>

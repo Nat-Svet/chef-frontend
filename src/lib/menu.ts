@@ -1,4 +1,4 @@
-import { WEEK_DAYS, type WeekDay } from '@/constants/catalog';
+import { EQUIPMENT_TAGS, WEEK_DAYS, type WeekDay } from '@/constants/catalog';
 import type { TimewebMenu } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import type { MealType, Recipe, RecipeIngredient, StoreProduct } from '@/lib/types';
@@ -54,7 +54,6 @@ const MEAL_EMOJI: Record<MealType, string> = {
   ужин: '🍲',
 };
 
-const EQUIPMENT_TAGS = ['Плита', 'Духовка', 'Мультиварка'];
 
 const CATEGORY_ORDER: ShoppingCategory[] = [
   'Овощи и фрукты',
@@ -227,7 +226,7 @@ export async function swapMeal(
 
 function toMeal(recipe: Recipe, ingredients: RecipeIngredient[]): Meal {
   const mealType = (recipe.meal_type ?? 'обед') as MealType;
-  const equipment = recipe.tags.find((tag) => EQUIPMENT_TAGS.includes(tag)) ?? 'Плита';
+  const equipment = recipe.tags.find((tag) => (EQUIPMENT_TAGS as readonly string[]).includes(tag)) ?? 'Плита';
 
   return {
     id: recipe.id,
@@ -334,9 +333,9 @@ function matchProduct(name: string, products: StoreProduct[]) {
 
 function guessCategory(name: string): ShoppingCategory {
   const lower = name.toLowerCase();
-  if (/(филе|курин|мясо|фарш)/.test(lower)) return 'Мясо и птица';
-  if (/(молоко|йогурт|сыр|творог)/.test(lower)) return 'Молочные продукты';
-  if (/(ягод|овощ|перец|кабач|томат|морков|лук|брокколи)/.test(lower)) return 'Овощи и фрукты';
+  if (/(яйц|молок|йогурт|сыр|творог|кефир|сливк|сметан|сливочн|моцарелл)/.test(lower)) return 'Молочные продукты';
+  if (/(филе|курин|бёдр|крыл|фарш|мясо|говяд|свинин|индейк|ветчин|сосиск|лосос|сёмг|тунец|треск|минтай|кальмар|креветк)/.test(lower)) return 'Мясо и птица';
+  if (/(ягод|овощ|перец|кабач|томат|помидор|морков|лук|брокколи|картоф|капуст|свёкл|тыкв|баклаж|гриб|шампин|огурц|шпинат|салат|руккол|чеснок|зелень|лимон|яблок|банан|авокадо)/.test(lower)) return 'Овощи и фрукты';
   return 'Бакалея';
 }
 

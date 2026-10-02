@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { EQUIPMENT_OPTIONS } from '@/constants/catalog';
 import { Spacing } from '@/constants/theme';
 import { useMenu } from '@/hooks/use-menu';
 import { useTheme } from '@/hooks/use-theme';
@@ -13,11 +14,6 @@ import { formatGrams } from '@/lib/menu';
 const PORTIONS = [1, 2, 4] as const;
 type PortionCount = (typeof PORTIONS)[number];
 
-const EQUIPMENT_EMOJI: Record<string, string> = {
-  Плита: '🔥',
-  Духовка: '🍞',
-  Мультиварка: '🍲',
-};
 
 export default function RecipeScreen() {
   const theme = useTheme();
@@ -86,7 +82,7 @@ export default function RecipeScreen() {
         </ThemedView>
         <ThemedView type="backgroundElement" style={styles.metaChip}>
           <ThemedText type="smallBold">
-            {EQUIPMENT_EMOJI[meal.equipment] ?? '🍳'} {meal.equipment}
+            {EQUIPMENT_OPTIONS.find((option) => option.id === meal.equipment)?.emoji ?? '🍳'} {meal.equipment}
           </ThemedText>
         </ThemedView>
       </View>
