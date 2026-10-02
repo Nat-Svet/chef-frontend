@@ -114,9 +114,9 @@ export default function OnboardingScreen() {
                   },
                 ]}>
                 <ThemedText type="smallBold" style={{ color: active ? '#fff' : theme.text }}>
-                  {option.emoji} {option.id}
+                  {option.emoji} {option.label}
                 </ThemedText>
-                <ThemedText type="small" style={{ color: active ? 'rgba(255,255,255,0.85)' : theme.textSecondary }}>
+                <ThemedText type="small" style={[styles.tagHint, { color: active ? 'rgba(255,255,255,0.85)' : theme.textSecondary }]}>
                   {option.hint}
                 </ThemedText>
               </Pressable>
@@ -282,6 +282,10 @@ const styles = StyleSheet.create({
   },
   tags: {
     gap: Spacing.two,
+  },
+  tagHint: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   tag: {
     borderRadius: Spacing.three,
