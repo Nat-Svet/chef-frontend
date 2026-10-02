@@ -60,7 +60,7 @@ export async function generateMenuOnServer(userId: string): Promise<GenerateMenu
     return payload;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('ИИ-сервер слишком долго отвечает. Попробуйте ещё раз.');
+      throw new Error('Сервер слишком долго отвечает. Попробуйте ещё раз.');
     }
     throw error;
   } finally {

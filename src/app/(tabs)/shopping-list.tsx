@@ -59,7 +59,7 @@ export default function ShoppingListScreen() {
         <View style={styles.header}>
           <ThemedText type="heading">Список покупок</ThemedText>
           <ThemedText themeColor="textSecondary">
-            Корзина ИИ-закупщика на 7 дней · {store}. Отметьте «У меня это есть» — позицию вычеркнем из
+            Ваша корзина на 7 дней · {store}. Отметьте «У меня это есть» — позицию вычеркнем из
             заказа.
           </ThemedText>
           {menu?.zeroWasteNotes ? (
@@ -72,7 +72,7 @@ export default function ShoppingListScreen() {
         {items.length === 0 ? (
           <ThemedView type="backgroundElement" style={styles.card}>
             <ThemedText themeColor="textSecondary" style={{ paddingVertical: Spacing.three }}>
-              Сначала соберите рацион на главном экране — список покупок появится из ответа ИИ.
+              Сначала соберите рацион на главном экране — здесь появится список покупок.
             </ThemedText>
           </ThemedView>
         ) : null}

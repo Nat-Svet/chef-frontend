@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, Animated, Easing, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, StyleSheet } from 'react-native';
 
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
@@ -11,7 +11,7 @@ type MenuSpinnerProps = {
 };
 
 export function MenuSpinner({
-  message = 'ИИ-Шеф и Закупщик составляют рацион под ваш бюджет...',
+  message = 'Составляем меню под ваш бюджет',
 }: MenuSpinnerProps) {
   const theme = useTheme();
   const pulse = useRef(new Animated.Value(0.86)).current;
@@ -54,14 +54,9 @@ export function MenuSpinner({
       <ThemedText type="heading" style={styles.title}>
         {message}
       </ThemedText>
-      <ThemedText themeColor="textSecondary" style={styles.hint}>
+      <ThemedText themeColor="textSecondary" style={[styles.hint, styles.hintSmall]}>
         Обычно это занимает меньше минуты: считаем КБЖУ, технику и корзину без отходов.
       </ThemedText>
-      <View style={[styles.dots, { backgroundColor: theme.primarySoft }]}>
-        <ThemedText type="smallBold" style={{ color: theme.primary }}>
-          Диетолог · Шеф · Закупщик
-        </ThemedText>
-      </View>
     </Screen>
   );
 }
@@ -89,13 +84,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 320,
   },
+  hintSmall: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
   hint: {
     textAlign: 'center',
     maxWidth: 300,
-  },
-  dots: {
-    borderRadius: 999,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
   },
 });

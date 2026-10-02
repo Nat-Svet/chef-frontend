@@ -31,6 +31,7 @@ export default function OnboardingScreen() {
 
   const [saving, setSaving] = useState(false);
 
+  const cardColors = { backgroundColor: theme.card, borderColor: theme.backgroundSelected };
   const isEditing = preferences.complete;
   const canGenerate = diet.length > 0 && equipment.length > 0 && stores.length > 0 && !saving;
 
@@ -91,12 +92,12 @@ export default function OnboardingScreen() {
         <ThemedText type="heading">
           {isEditing ? 'Изменим параметры недели' : 'Соберём меню на неделю'}
         </ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Четыре коротких ответа — и рацион уложится в ваш бюджет, кухню и магазины.
+        <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
+          Четыре коротких ответа — и меню уложится в ваш бюджет, технику и магазины.
         </ThemedText>
       </View>
 
-      <View style={styles.block}>
+      <View style={[styles.block, cardColors]}>
         <ThemedText type="smallBold">Цель питания</ThemedText>
         <View style={styles.tags}>
           {DIET_OPTIONS.map((option) => {
@@ -124,7 +125,7 @@ export default function OnboardingScreen() {
         </View>
       </View>
 
-      <View style={styles.block}>
+      <View style={[styles.block, cardColors]}>
         <ThemedText type="smallBold">Недельный бюджет</ThemedText>
         <ThemedView type="backgroundElement" style={styles.budgetCard}>
           <ThemedText type="small" themeColor="textSecondary">
@@ -159,7 +160,7 @@ export default function OnboardingScreen() {
         </ThemedView>
       </View>
 
-      <View style={styles.block}>
+      <View style={[styles.block, cardColors]}>
         <ThemedText type="smallBold">Доступная кухонная техника</ThemedText>
         {EQUIPMENT_OPTIONS.map((option) => {
           const active = equipment.includes(option.id);
@@ -199,7 +200,7 @@ export default function OnboardingScreen() {
         })}
       </View>
 
-      <View style={styles.block}>
+      <View style={[styles.block, cardColors]}>
         <ThemedText type="smallBold">Любимые магазины</ThemedText>
         {STORE_OPTIONS.map((option) => {
           const active = stores.includes(option.id);
@@ -269,8 +270,15 @@ const styles = StyleSheet.create({
   header: {
     gap: Spacing.one,
   },
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
   block: {
     gap: Spacing.two,
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    borderWidth: 1,
   },
   tags: {
     gap: Spacing.two,

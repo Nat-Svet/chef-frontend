@@ -1,6 +1,6 @@
 # Шеф в Кармане
 
-Умный гастро-конструктор меню на **Expo (React Native) + TypeScript**.
+Персональный шеф-повар и умная корзина на **Expo (React Native) + TypeScript**.
 
 ## Запуск
 

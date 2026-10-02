@@ -43,7 +43,7 @@ export default function MenuScreen() {
       <Screen>
         <ThemedText type="heading">Нужен профиль в облаке</ThemedText>
         <ThemedText themeColor="textSecondary">
-          Сохраните ответы опроса — тогда ИИ-сервер сможет собрать рацион по вашему UUID.
+          Сохраните ответы опроса — тогда мы сможем составить меню специально для вас.
         </ThemedText>
         <Pressable
           accessibilityRole="button"
@@ -82,21 +82,16 @@ export default function MenuScreen() {
   const remaining = Math.max(0, preferences.budgetLimit - spent);
   const progress = preferences.budgetLimit > 0 ? spent / preferences.budgetLimit : 0;
   const meals = mealsForDay(menu, day);
-  // Меню, сохранённое в AsyncStorage до появления поля stores, при
-  // загрузке через JSON.parse не содержит его вовсе — подстраховываемся.
-  const stores = menu.stores?.length ? menu.stores : menu.store ? [menu.store] : [];
 
   return (
     <Screen>
       <View style={styles.header}>
-        <ThemedText type="smallBold" themeColor="textSecondary">
-          ГАСТРО-КОНСТРУКТОР
-        </ThemedText>
-        <ThemedText type="heading">Шеф в Кармане</ThemedText>
-        <ThemedText themeColor="textSecondary">
-          Рацион на неделю собрали ИИ-агенты.{' '}
-          {stores.length ? `${stores.length > 1 ? 'Магазины' : 'Магазин'}: ${stores.join(' + ')}.` : ''}
-        </ThemedText>
+        <ThemedText type="heading">Ваше меню на неделю</ThemedText>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/onboarding')} style={styles.settingsLink}>
+          <ThemedText style={[styles.smallNote, { color: theme.primary }]}>
+            ✨ Изменить рацион и бюджет · диета, техника, магазины — всё можно поменять
+          </ThemedText>
+        </Pressable>
       </View>
 
       {menu.isFallback ? (
@@ -109,26 +104,6 @@ export default function MenuScreen() {
           </ThemedText>
         </ThemedView>
       ) : null}
-
-      {menu.scarcityNotice ? (
-        <ThemedView type="primarySoft" style={styles.fallbackBanner}>
-          <ThemedText type="small" style={{ color: theme.primary }}>
-            {menu.scarcityNotice}
-          </ThemedText>
-        </ThemedView>
-      ) : null}
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.push('/onboarding')}
-        style={[styles.settingsButton, { backgroundColor: theme.primarySoft }]}>
-        <ThemedText type="smallBold" style={{ color: theme.primary }}>
-          ✨ Изменить рацион и бюджет
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          Кошелёк, диета или доступная техника изменились? Перенастройте всё за минуту.
-        </ThemedText>
-      </Pressable>
 
       <ThemedView type="backgroundElement" style={styles.budgetCard}>
         <View style={styles.budgetRow}>
@@ -184,6 +159,13 @@ export default function MenuScreen() {
         );
       })}
 
+      {menu.scarcityNotice ? (
+        <ThemedText style={[styles.smallNote, styles.centerNote, { color: theme.textSecondary }]}>
+          Подобрали максимум уникальных блюд по вашим фильтрам! Чтобы рацион стал ещё разнообразнее, попробуйте
+          расширить настройки.
+        </ThemedText>
+      ) : null}
+
       <Pressable
         onPress={() => router.push('/shopping-list')}
         style={[styles.cta, { backgroundColor: theme.accent }]}>
@@ -210,10 +192,15 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     gap: Spacing.half,
   },
-  settingsButton: {
-    borderRadius: Spacing.four,
-    padding: Spacing.three,
-    gap: 2,
+  settingsLink: {
+    paddingVertical: Spacing.one,
+  },
+  smallNote: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  centerNote: {
+    textAlign: 'center',
   },
   budgetCard: {
     borderRadius: Spacing.four,

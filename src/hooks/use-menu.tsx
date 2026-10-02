@@ -65,7 +65,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       const raw = cause instanceof Error ? cause.message : 'Не удалось собрать рацион';
       const message =
         /failed to fetch|networkerror|load failed/i.test(raw)
-          ? 'Не удалось связаться с ИИ-сервером. Обновите страницу или нажмите «Попробовать снова».'
+          ? 'Не удалось связаться с сервером. Проверьте соединение и нажмите «Попробовать снова».'
           : raw;
       setError(message);
     } finally {
