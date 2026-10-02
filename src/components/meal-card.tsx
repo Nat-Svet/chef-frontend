@@ -3,7 +3,9 @@ import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { EQUIPMENT_TAGS } from '@/constants/catalog';
 import { Spacing } from '@/constants/theme';
+import { usePreferences } from '@/hooks/use-preferences';
 import type { Meal } from '@/lib/menu';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -24,6 +26,12 @@ export const MealCard = forwardRef<View, MealCardProps>(function MealCard(
   ref,
 ) {
   const theme = useTheme();
+  const { preferences } = usePreferences();
+
+  const equipment = meal.tags.filter((tag) => (EQUIPMENT_TAGS as readonly string[]).includes(tag));
+  const dietTags = meal.tags.filter((tag) => !(EQUIPMENT_TAGS as readonly string[]).includes(tag));
+  const primaryTags = dietTags.filter((tag) => preferences.dietTags.includes(tag));
+  const secondaryTags = dietTags.filter((tag) => !preferences.dietTags.includes(tag));
 
   // Кнопка замены — СОСЕДНИЙ Pressable, а не вложенный в навигационный:
   // на react-native-web клик по вложенному Pressable всё равно
@@ -53,22 +61,30 @@ export const MealCard = forwardRef<View, MealCardProps>(function MealCard(
             {meal.title}
           </ThemedText>
 
-          <View style={styles.macros}>
-            <Macro label="ккал" value={meal.kcal} />
-            <Macro label="Б" value={meal.protein} />
-            <Macro label="Ж" value={meal.fat} />
-            <Macro label="У" value={meal.carb} />
-          </View>
+          <ThemedText style={[styles.macros, { color: theme.textSecondary }]}>
+            {meal.kcal} ккал · Б {meal.protein} · Ж {meal.fat} · У {meal.carb}
+          </ThemedText>
 
-          <View style={styles.tags}>
-            {meal.tags.map((tag) => (
-              <View key={tag} style={[styles.tag, { backgroundColor: theme.primarySoft }]}>
-                <ThemedText type="small" style={{ color: theme.primary }}>
-                  {tag}
-                </ThemedText>
-              </View>
-            ))}
-          </View>
+          {dietTags.length ? (
+            <View style={styles.tags}>
+              {primaryTags.map((tag) => (
+                <View key={tag} style={[styles.tagPrimary, { backgroundColor: theme.primary }]}>
+                  <ThemedText style={styles.tagPrimaryLabel}>{tag}</ThemedText>
+                </View>
+              ))}
+              {secondaryTags.map((tag) => (
+                <View key={tag} style={[styles.tagSecondary, { backgroundColor: theme.backgroundSelected }]}>
+                  <ThemedText style={[styles.tagSecondaryLabel, { color: theme.textSecondary }]}>{tag}</ThemedText>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {equipment.length ? (
+            <ThemedText style={[styles.equipment, { color: theme.textSecondary }]}>
+              Понадобится: {equipment.join(', ')}
+            </ThemedText>
+          ) : null}
         </ThemedView>
       </Pressable>
 
@@ -86,14 +102,6 @@ export const MealCard = forwardRef<View, MealCardProps>(function MealCard(
     </View>
   );
 });
-
-function Macro({ label, value }: { label: string; value: number }) {
-  return (
-    <ThemedText type="small" themeColor="textSecondary">
-      {value} {label}
-    </ThemedText>
-  );
-}
 
 const styles = StyleSheet.create({
   wrap: {
@@ -135,17 +143,37 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   macros: {
-    flexDirection: 'row',
-    gap: Spacing.three,
+    fontSize: 11,
+    lineHeight: 15,
   },
   tags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'center',
     gap: Spacing.one,
   },
-  tag: {
+  tagPrimary: {
     borderRadius: 999,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  tagPrimaryLabel: {
+    color: '#fff',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  tagSecondary: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  tagSecondaryLabel: {
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  equipment: {
+    fontSize: 11,
+    lineHeight: 15,
   },
 });
