@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useMenu } from '@/hooks/use-menu';
 import { usePreferences } from '@/hooks/use-preferences';
-import { formatGrams } from '@/lib/menu';
+import { formatAmount, packLabel } from '@/lib/menu';
 import { useTheme } from '@/hooks/use-theme';
 import { getOwnedItems } from '@/lib/shopping-selection';
 
@@ -34,7 +34,14 @@ export default function CartScreen() {
       store,
       itemsCount: items.length,
       totalCost: total,
-      items: items.map((item) => ({ name: item.name, grams: item.grams, category: item.category, price: item.price })),
+      items: items.map((item) => ({
+        name: item.name,
+        packs: item.packs,
+        pack: item.packTitle,
+        neededGrams: item.grams,
+        category: item.category,
+        price: item.price,
+      })),
     }),
     [store, items, total],
   );
@@ -120,7 +127,7 @@ export default function CartScreen() {
             <View style={styles.rowCopy}>
               <ThemedText type="smallBold">{item.name}</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                {formatGrams(item.grams, 1)}
+                {item.packs > 0 ? packLabel(item) : formatAmount(item.name, item.grams)}
               </ThemedText>
             </View>
             <ThemedText type="smallBold" style={{ color: theme.primary }}>

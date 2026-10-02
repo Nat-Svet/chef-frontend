@@ -9,20 +9,20 @@ import { EQUIPMENT_OPTIONS } from '@/constants/catalog';
 import { Spacing } from '@/constants/theme';
 import { useMenu } from '@/hooks/use-menu';
 import { useTheme } from '@/hooks/use-theme';
-import { formatGrams } from '@/lib/menu';
+import { formatAmount } from '@/lib/menu';
 
 
 export default function RecipeScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getMealById, portions, setPortions } = useMenu();
+  const { getMealById, portions } = useMenu();
   const meal = getMealById(id);
 
   const ingredients = useMemo(
     () =>
       meal?.ingredients.map((item) => ({
         name: item.name,
-        amount: formatGrams(item.grams, portions),
+        amount: formatAmount(item.name, item.grams * portions),
       })) ?? [],
     [meal, portions],
   );
@@ -93,35 +93,6 @@ export default function RecipeScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             на {portions} {portionWord(portions)}
           </ThemedText>
-        </View>
-
-        <View style={[styles.stepper, { backgroundColor: theme.backgroundElement }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Меньше порций"
-            disabled={portions <= 1}
-            onPress={() => void setPortions(portions - 1)}
-            style={[styles.stepBtn, { backgroundColor: theme.primarySoft, opacity: portions <= 1 ? 0.4 : 1 }]}>
-            <ThemedText type="heading" style={{ color: theme.primary }}>
-              −
-            </ThemedText>
-          </Pressable>
-          <View style={styles.stepValue}>
-            <ThemedText type="heading">{portions}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {portionWord(portions)}
-            </ThemedText>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Больше порций"
-            disabled={portions >= 20}
-            onPress={() => void setPortions(portions + 1)}
-            style={[styles.stepBtn, { backgroundColor: theme.primary, opacity: portions >= 20 ? 0.4 : 1 }]}>
-            <ThemedText type="heading" style={{ color: '#fff' }}>
-              +
-            </ThemedText>
-          </Pressable>
         </View>
 
         <ThemedView type="backgroundElement" style={styles.listCard}>

@@ -14,6 +14,7 @@ export type TimewebMenu = {
   nutrition: { kcal: number; protein: number; fat: number; carb: number } | null;
   zeroWasteNotes: string;
   scarcityNotice: string | null;
+  budgetNotice?: string | null;
   days: TimewebMenuDay[];
 };
 
@@ -74,6 +75,9 @@ export async function regenerateMealOnServer(
   excludeIds: number[],
   rejectedIds: number[] = [],
   siblingIds: number[] = [],
+  /** Текущие 21 блюдо недели по порядку (Пн завтрак … Вс ужин), номер заменяемого слота и число порций —
+   *  чтобы сервер подбирал замену в рамках недельного бюджета. */
+  budget?: { menuIds: number[]; slotIndex: number; portions: number },
 ): Promise<{ recipeId: number }> {
   if (!TIMEWEB_API_URL) {
     throw new Error('Задайте EXPO_PUBLIC_TIMEWEB_API_URL в файле .env');
@@ -82,7 +86,7 @@ export async function regenerateMealOnServer(
   const response = await fetch(`${TIMEWEB_API_URL}/api/regenerate-meal`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, mealType, excludeIds, rejectedIds, siblingIds }),
+    body: JSON.stringify({ userId, mealType, excludeIds, rejectedIds, siblingIds, ...budget }),
   });
 
   const payload = (await response.json().catch(() => ({}))) as { recipeId?: number; error?: string };

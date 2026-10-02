@@ -36,6 +36,8 @@ export type GeneratedMenu = {
   nutrition: { kcal: number; protein: number; fat: number; carb: number } | null;
   zeroWasteNotes: string;
   scarcityNotice: string | null;
+  /** Не пусто, только если при заданном бюджете и фильтрах уложиться в лимит невозможно. */
+  budgetNotice: string | null;
   days: { day: WeekDay; breakfastId: number; lunchId: number; dinnerId: number }[];
   recipes: Record<number, Meal>;
   shoppingItems: ShoppingItem[];
@@ -47,8 +49,14 @@ export type ShoppingItem = {
   name: string;
   grams: number;
   category: ShoppingCategory;
+  /** Цена целых упаковок: packs × цена упаковки. */
   price: number;
   store: string;
+  /** Число целых упаковок к покупке (0 — товар не найден в каталоге, цена оценочная). */
+  packs: number;
+  /** Вес одной упаковки, г. */
+  packGrams: number;
+  packTitle: string;
 };
 
 const MEAL_EMOJI: Record<MealType, string> = {
@@ -91,12 +99,40 @@ const INGREDIENT_CATEGORY: Record<string, ShoppingCategory> = {
   'Нут варёный': 'Бакалея',
 };
 
-export function formatGrams(gramsPerPortion: number, portions: number) {
-  const value = gramsPerPortion * portions;
-  if (value < 10) {
-    return `${value.toFixed(1).replace('.', ',')} г`;
+/** Вес одного яйца категории С1 — 55–60 г. */
+export const EGG_GRAMS = 60;
+
+export function isEgg(name: string) {
+  return /яйц/i.test(name);
+}
+
+export function eggPieces(grams: number) {
+  return Math.max(1, Math.round(grams / EGG_GRAMS));
+}
+
+/** Количество для показа: яйца — всегда в штуках, остальное — в граммах. */
+export function formatAmount(name: string, grams: number) {
+  if (isEgg(name)) return `${eggPieces(grams)} шт.`;
+  if (grams < 10) {
+    return `${grams.toFixed(1).replace('.', ',')} г`;
   }
-  return `${Math.round(value)} г`;
+  return `${Math.round(grams)} г`;
+}
+
+export function formatGrams(gramsPerPortion: number, portions: number) {
+  return formatAmount('', gramsPerPortion * portions);
+}
+
+/** Название упаковки для списка покупок; у яиц вместо граммов — штуки в упаковке. */
+export function packLabel(item: ShoppingItem) {
+  const title = isEgg(item.name) ? `${item.name}, ${eggPieces(item.packGrams)} шт.` : item.packTitle;
+  return item.packs > 1 ? `${item.packs} × ${title}` : title;
+}
+
+/** Забота о пользователе: сколько реально нужно и что останется на кухне. null — подсказка не нужна. */
+export function leftoverHint(item: ShoppingItem) {
+  if (item.packs <= 0 || item.packs * item.packGrams - item.grams < item.packGrams * 0.03) return null;
+  return `Понадобится ${formatAmount(item.name, item.grams)}. Остаток останется на вашей кухне на следующую неделю!`;
 }
 
 export function groupShoppingList(items: ShoppingItem[]) {
@@ -171,6 +207,7 @@ export async function hydrateGeneratedMenu(
     nutrition: raw.nutrition,
     zeroWasteNotes: raw.zeroWasteNotes || '',
     scarcityNotice: raw.scarcityNotice ?? null,
+    budgetNotice: raw.budgetNotice ?? null,
     days,
     recipes,
     shoppingItems: [],
@@ -220,17 +257,6 @@ export async function swapMeal(
   return nextMenu;
 }
 
-/** Меняет число порций и пересчитывает вес/стоимость всей корзины. */
-export async function applyPortions(menu: GeneratedMenu, portions: number): Promise<GeneratedMenu> {
-  const { data: products, error } = await supabase.from('store_products').select('*');
-  if (error) throw error;
-
-  const next: GeneratedMenu = { ...menu, portions, shoppingItems: [] };
-  next.shoppingItems = buildShoppingItems(next, (products ?? []) as StoreProduct[]);
-  next.totalCost = next.shoppingItems.reduce((sum, item) => sum + item.price, 0);
-  return next;
-}
-
 function toMeal(recipe: Recipe, ingredients: RecipeIngredient[]): Meal {
   const mealType = (recipe.meal_type ?? 'обед') as MealType;
   const equipment = recipe.tags.find((tag) => (EQUIPMENT_TAGS as readonly string[]).includes(tag)) ?? 'Плита';
@@ -263,6 +289,9 @@ function parseSteps(instructions: string | null) {
     .filter(Boolean);
 }
 
+/** Корзина из целых заводских упаковок: граммы суммируются по товару магазина,
+ *  затем округляются вверх до числа упаковок; цена = упаковки × цена упаковки.
+ *  Тот же расчёт делает Закупщик на сервере, поэтому чек совпадает. */
 function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): ShoppingItem[] {
   const counts = new Map<number, number>();
   for (const day of menu.days) {
@@ -271,50 +300,49 @@ function buildShoppingItems(menu: GeneratedMenu, products: StoreProduct[]): Shop
     }
   }
 
-  const gramsByName = new Map<string, number>();
-  for (const [recipeId, times] of counts) {
-    const meal = menu.recipes[recipeId];
-    if (!meal) continue;
-    for (const ingredient of meal.ingredients) {
-      gramsByName.set(ingredient.name, (gramsByName.get(ingredient.name) ?? 0) + ingredient.grams * times * (menu.portions ?? 1));
-    }
-  }
-
   const storeProducts = products.filter(
     (item) => item.store_name === menu.store && item.in_stock !== false,
   );
 
-  const raw = [...gramsByName.entries()].map(([name, grams]) => {
-    const product = matchProduct(name, storeProducts);
-    const packGrams = product?.pack_weight_grams && product.pack_weight_grams > 0 ? product.pack_weight_grams : grams;
-    const packs = product ? Math.max(1, Math.ceil(grams / packGrams)) : 1;
-    const rawPrice = product ? packs * Number(product.price) : Math.max(1, Math.round(grams * 0.15));
+  type Line = { names: string[]; grams: number; product?: StoreProduct };
+  const lines = new Map<string, Line>();
+  for (const [recipeId, times] of counts) {
+    const meal = menu.recipes[recipeId];
+    if (!meal) continue;
+    for (const ingredient of meal.ingredients) {
+      const product = matchProduct(ingredient.name, storeProducts);
+      const key = product ? `p:${product.product_title}` : `n:${ingredient.name}`;
+      const line = lines.get(key) ?? { names: [], grams: 0, product };
+      if (!line.names.includes(ingredient.name)) line.names.push(ingredient.name);
+      line.grams += ingredient.grams * times * (menu.portions ?? 1);
+      lines.set(key, line);
+    }
+  }
 
-    return {
-      name,
-      grams,
-      category: INGREDIENT_CATEGORY[name] ?? guessCategory(name),
-      rawPrice,
-      store: menu.store,
-    };
-  });
-
-  // Цены — ровно по каталогу выбранного магазина, без подгонки под бюджет.
-  const items = raw
-    .map((item) => ({
-      name: item.name,
-      grams: item.grams,
-      category: item.category,
-      store: item.store,
-      price: item.rawPrice,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-
-  return items;
+  return [...lines.values()]
+    .map(({ names, grams, product }): ShoppingItem => {
+      const name = names.length === 1 ? names[0] : (product?.search_term ?? names[0]);
+      const category = INGREDIENT_CATEGORY[name] ?? guessCategory(name);
+      if (!product) {
+        return { name, grams, category, price: Math.max(1, Math.round(grams * 0.15)), store: menu.store, packs: 0, packGrams: 0, packTitle: '' };
+      }
+      const packGrams = product.pack_weight_grams && product.pack_weight_grams > 0 ? product.pack_weight_grams : grams;
+      const packs = Math.max(1, Math.ceil(grams / packGrams - 1e-9));
+      return {
+        name,
+        grams,
+        category,
+        price: Math.round(packs * Number(product.price)),
+        store: menu.store,
+        packs,
+        packGrams,
+        packTitle: product.product_title,
+      };
+    })
+    .sort((x, y) => x.name.localeCompare(y.name, 'ru'));
 }
 
-/** Среди совпадений по названию (возможно, в разных магазинах) берёт самый
- *  дешёвый за грамм — так Закупщик реально оптимизирует корзину по выгоде. */
+/** Среди совпадений по названию берёт самую дешёвую за грамм упаковку. */
 function matchProduct(name: string, products: StoreProduct[]) {
   const needle = name.toLowerCase();
   const candidates = products.filter(
@@ -325,11 +353,8 @@ function matchProduct(name: string, products: StoreProduct[]) {
   );
   if (!candidates.length) return undefined;
 
-  return candidates.reduce((best, cur) => {
-    const bestPerGram = best.price / (best.pack_weight_grams && best.pack_weight_grams > 0 ? best.pack_weight_grams : 1);
-    const curPerGram = cur.price / (cur.pack_weight_grams && cur.pack_weight_grams > 0 ? cur.pack_weight_grams : 1);
-    return curPerGram < bestPerGram ? cur : best;
-  });
+  const perGram = (p: StoreProduct) => p.price / (p.pack_weight_grams && p.pack_weight_grams > 0 ? p.pack_weight_grams : 1);
+  return candidates.reduce((best, cur) => (perGram(cur) < perGram(best) ? cur : best));
 }
 
 function guessCategory(name: string): ShoppingCategory {

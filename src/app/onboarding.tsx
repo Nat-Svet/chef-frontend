@@ -12,9 +12,19 @@ import { usePreferences } from '@/hooks/use-preferences';
 import { useTheme } from '@/hooks/use-theme';
 import { upsertGuestProfile } from '@/lib/save-profile';
 
+const PORTIONS_MAX = 20;
 const BUDGET_STEP = 500;
 const BUDGET_MIN = 1000;
 const BUDGET_MAX = 30000;
+
+function peopleWord(count: number) {
+  const mod100 = count % 100;
+  const mod10 = count % 10;
+  if (mod100 >= 11 && mod100 <= 14) return 'человек';
+  if (mod10 === 1) return 'человек';
+  if (mod10 >= 2 && mod10 <= 4) return 'человека';
+  return 'человек';
+}
 
 function toggleValue(list: string[], value: string) {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
@@ -24,6 +34,7 @@ export default function OnboardingScreen() {
   const theme = useTheme();
   const { preferences, savePreferences } = usePreferences();
   const { clearMenu } = useMenu();
+  const [portions, setPortions] = useState(preferences.portions ?? 1);
   const [diet, setDiet] = useState<string[]>(preferences.dietTags.slice(0, 1));
   const [budget, setBudget] = useState(preferences.budgetLimit);
   const [equipment, setEquipment] = useState<string[]>(preferences.equipmentTags);
@@ -46,7 +57,7 @@ export default function OnboardingScreen() {
       equipmentTags: equipment,
       selectedStores: stores,
       profileId: preferences.profileId,
-      portions: preferences.portions ?? 1,
+      portions,
     };
 
     try {
@@ -88,14 +99,53 @@ export default function OnboardingScreen() {
           </Pressable>
         ) : null}
         <ThemedText type="smallBold" themeColor="textSecondary">
-          {isEditing ? 'КОРРЕКТИРОВКА' : 'ШАГ 1 ИЗ 1 · ОПРОС'}
+          {isEditing ? 'КОРРЕКТИРОВКА' : 'ОПРОС · ПЯТЬ ВОПРОСОВ'}
         </ThemedText>
         <ThemedText type="heading">
           {isEditing ? 'Изменим параметры недели' : 'Соберём меню на неделю'}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.subtitle}>
-          Четыре коротких ответа — и меню уложится в ваш бюджет, технику и магазины.
+          Пять коротких ответов — и меню уложится в ваш бюджет, технику и магазин.
         </ThemedText>
+      </View>
+
+      <View style={[styles.block, cardColors]}>
+        <ThemedText type="smallBold">Сколько человек в вашей семье?</ThemedText>
+        <ThemedView type="backgroundElement" style={styles.budgetCard}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Рассчитаем порции и закупку на всех
+          </ThemedText>
+          <View style={styles.budgetRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Меньше человек"
+              disabled={portions <= 1}
+              onPress={() => setPortions((value) => Math.max(1, value - 1))}
+              style={[styles.stepBtn, { backgroundColor: theme.primarySoft, opacity: portions <= 1 ? 0.4 : 1 }]}>
+              <ThemedText type="heading" style={{ color: theme.primary }}>
+                −
+              </ThemedText>
+            </Pressable>
+            <View style={styles.budgetValue}>
+              <ThemedText type="heading" style={styles.budgetNumber}>
+                {portions}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {peopleWord(portions)}
+              </ThemedText>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Больше человек"
+              disabled={portions >= PORTIONS_MAX}
+              onPress={() => setPortions((value) => Math.min(PORTIONS_MAX, value + 1))}
+              style={[styles.stepBtn, { backgroundColor: theme.primary, opacity: portions >= PORTIONS_MAX ? 0.4 : 1 }]}>
+              <ThemedText type="heading" style={{ color: '#fff' }}>
+                +
+              </ThemedText>
+            </Pressable>
+          </View>
+        </ThemedView>
       </View>
 
       <View style={[styles.block, cardColors]}>
@@ -131,7 +181,7 @@ export default function OnboardingScreen() {
         <ThemedText type="smallBold">Недельный бюджет</ThemedText>
         <ThemedView type="backgroundElement" style={styles.budgetCard}>
           <ThemedText type="small" themeColor="textSecondary">
-            Лимит на продукты
+            Лимит на продукты · на всю семью
           </ThemedText>
           <View style={styles.budgetRow}>
             <Pressable

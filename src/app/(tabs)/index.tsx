@@ -161,6 +161,14 @@ export default function MenuScreen() {
         );
       })}
 
+      {menu.budgetNotice ? (
+        <ThemedView type="accentSoft" style={styles.fallbackBanner}>
+          <ThemedText type="small" themeColor="textSecondary">
+            {menu.budgetNotice}
+          </ThemedText>
+        </ThemedView>
+      ) : null}
+
       {menu.scarcityNotice ? (
         <ThemedText style={[styles.smallNote, styles.centerNote, { color: theme.textSecondary }]}>
           Подобрали максимум уникальных блюд по вашим фильтрам! Чтобы рацион стал ещё разнообразнее, попробуйте

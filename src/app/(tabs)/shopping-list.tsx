@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useMenu } from '@/hooks/use-menu';
 import { usePreferences } from '@/hooks/use-preferences';
-import { formatGrams, groupShoppingList } from '@/lib/menu';
+import { formatAmount, groupShoppingList, leftoverHint, packLabel } from '@/lib/menu';
 import { useTheme } from '@/hooks/use-theme';
 import { rememberOwnedItems } from '@/lib/shopping-selection';
 
@@ -107,8 +107,11 @@ export default function ShoppingListScreen() {
                         {item.name}
                       </ThemedText>
                       <ThemedText type="small" themeColor="textSecondary">
-                        {haveIt ? 'У меня это есть' : formatGrams(item.grams, 1)}
+                        {haveIt ? 'У меня это есть' : item.packs > 0 ? packLabel(item) : formatAmount(item.name, item.grams)}
                       </ThemedText>
+                      {!haveIt && leftoverHint(item) ? (
+                        <ThemedText style={[styles.leftover, { color: theme.accent }]}>{leftoverHint(item)}</ThemedText>
+                      ) : null}
                     </View>
                     <ThemedText
                       type="smallBold"
@@ -217,6 +220,10 @@ const styles = StyleSheet.create({
   rowCopy: {
     flex: 1,
     gap: 2,
+  },
+  leftover: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   ownedText: {
     textDecorationLine: 'line-through',
