@@ -214,8 +214,10 @@ export default function OnboardingScreen() {
 
       <View style={[styles.block, cardColors]}>
         <ThemedText type="smallBold">Доступная кухонная техника</ThemedText>
-        {EQUIPMENT_OPTIONS.map((option) => {
+        <View style={styles.grid}>
+        {EQUIPMENT_OPTIONS.map((option, index) => {
           const active = equipment.includes(option.id);
+          const isLast = index === EQUIPMENT_OPTIONS.length - 1;
           return (
             <Pressable
               key={option.id}
@@ -224,18 +226,21 @@ export default function OnboardingScreen() {
               onPress={() => setEquipment(toggleValue(equipment, option.id))}
               style={[
                 styles.selectCard,
+                styles.gridCard,
+                isLast && styles.gridCardWide,
                 {
                   backgroundColor: active ? theme.primarySoft : theme.backgroundElement,
                   borderColor: active ? theme.primary : 'transparent',
                 },
               ]}>
               <ThemedText style={styles.cardEmoji}>{option.emoji}</ThemedText>
-              <ThemedText type="smallBold" style={styles.cardTitle}>
+              <ThemedText type="smallBold" style={[styles.cardTitle, styles.gridTitle]}>
                 {option.id}
               </ThemedText>
               <View
                 style={[
                   styles.checkbox,
+                  styles.gridCheckbox,
                   {
                     backgroundColor: active ? theme.primary : theme.background,
                     borderColor: active ? theme.primary : theme.backgroundSelected,
@@ -250,6 +255,7 @@ export default function OnboardingScreen() {
             </Pressable>
           );
         })}
+        </View>
       </View>
 
       <View style={[styles.block, cardColors]}>
@@ -367,6 +373,33 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.four,
     padding: Spacing.three,
     borderWidth: 2,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: Spacing.two,
+  },
+  gridCard: {
+    width: '48.5%',
+    minHeight: 96,
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: Spacing.one,
+    paddingHorizontal: Spacing.two,
+  },
+  gridCardWide: {
+    width: '100%',
+    minHeight: 72,
+  },
+  gridTitle: {
+    flex: 0,
+    textAlign: 'center',
+  },
+  gridCheckbox: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
   },
   logo: {
     width: 44,
